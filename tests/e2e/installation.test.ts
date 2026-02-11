@@ -117,8 +117,8 @@ describe('Installation E2E Tests', () => {
       }
     }, TEST_TIMEOUT);
 
-    it('should execute via npx @wangkanai/devops-mcp', async () => {
-      const result = await testNpxExecution('npx', ['-y', '@wangkanai/devops-mcp'], 'npx @wangkanai/devops-mcp');
+    it('should execute via npx @sirforce/devops-mcp', async () => {
+      const result = await testNpxExecution('npx', ['-y', '@sirforce/devops-mcp'], 'npx @sirforce/devops-mcp');
       
       if (!result.success) {
         console.log('stdout:', result.stdout);
@@ -168,11 +168,11 @@ describe('Installation E2E Tests', () => {
       // Test that package.json is correctly configured
       const packageJson = require('../../package.json');
       
-      expect(packageJson.name).toBe('@wangkanai/devops-mcp');
+      expect(packageJson.name).toBe('@sirforce/devops-mcp');
       expect(packageJson.main).toBe('dist/index.js');
       expect(packageJson.bin).toBeDefined();
       expect(packageJson.bin['devops-mcp']).toBe('dist/index.js');
-      expect(packageJson.bin['wangkanai-devops-mcp']).toBe('dist/index.js');
+      expect(packageJson.bin['sirforce-devops-mcp']).toBe('dist/index.js');
     });
 
     it('should have built distribution files', () => {
@@ -212,7 +212,7 @@ describe('Installation E2E Tests', () => {
       // Test the recommended commands that would be used with Claude
       const recommendedCommands = [
         'npx -y devops-mcp',
-        'npx -y @wangkanai/devops-mcp'
+        'npx -y @sirforce/devops-mcp'
       ];
       
       recommendedCommands.forEach(command => {
@@ -227,14 +227,14 @@ describe('Installation E2E Tests', () => {
         mcpServers: {
           'devops-mcp': {
             command: 'npx',
-            args: ['-y', '@wangkanai/devops-mcp']
+            args: ['-y', '@sirforce/devops-mcp']
           }
         }
       };
       
       expect(expectedConfig.mcpServers['devops-mcp'].command).toBe('npx');
       expect(expectedConfig.mcpServers['devops-mcp'].args).toContain('-y');
-      expect(expectedConfig.mcpServers['devops-mcp'].args).toContain('@wangkanai/devops-mcp');
+      expect(expectedConfig.mcpServers['devops-mcp'].args).toContain('@sirforce/devops-mcp');
     });
   });
 
@@ -277,7 +277,7 @@ describe('Installation E2E Tests', () => {
     it('should start within reasonable time limits', async () => {
       const startTime = Date.now();
       
-      const result = await testNpxExecution('npx', ['-y', '@wangkanai/devops-mcp'], 'performance test');
+      const result = await testNpxExecution('npx', ['-y', '@sirforce/devops-mcp'], 'performance test');
       
       const elapsed = Date.now() - startTime;
       

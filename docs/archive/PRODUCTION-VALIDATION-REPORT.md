@@ -14,7 +14,7 @@ The Azure DevOps MCP Proxy Server has successfully passed comprehensive validati
 
 **Status**: PASSED ✅
 
-- **Compiled Server**: `/Users/wangkanai/Sources/devops-mcp/dist/index.js` exists and is executable
+- **Compiled Server**: `/Users/you/Projects/devops-mcp/dist/index.js` exists and is executable
 - **TypeScript Compilation**: All source files successfully compiled to JavaScript with source maps
 - **Dependencies**: All required modules properly resolved and bundled
 - **File Structure**: Complete dist/ directory with organized module structure
@@ -53,7 +53,7 @@ Protocol Version: 2024-11-05
 
 **Status**: PASSED ✅
 
-- **Configuration File**: Created `/Users/wangkanai/Sources/devops-mcp/config/claude-code-servers.json`
+- **Configuration File**: Created `/Users/you/Projects/devops-mcp/config/claude-code-servers.json`
 - **Path Validation**: Absolute path correctly specified for dist/index.js
 - **JSON Format**: Valid JSON structure compatible with Claude Code servers configuration
 - **Description**: Clear description for MCP server identification
@@ -65,7 +65,7 @@ Protocol Version: 2024-11-05
   "servers": {
     "devops-mcp": {
       "command": "node",
-      "args": ["/Users/wangkanai/Sources/devops-mcp/dist/index.js"],
+      "args": ["/Users/you/Projects/devops-mcp/dist/index.js"],
       "env": {},
       "description": "Dynamic Azure DevOps MCP proxy with automatic context switching for RiverSync and Mula projects"
     }
@@ -77,8 +77,8 @@ Protocol Version: 2024-11-05
 
 **Status**: PASSED ✅
 
-- **RiverSync Detection**: Successfully detects `/Users/wangkanai/Sources/riversync` → `https://dev.azure.com/riversync/RiverSync`
-- **Mula Detection**: Successfully detects `/Users/wangkanai/Sources/mula` → `https://dev.azure.com/mula-x/mula`
+- **RiverSync Detection**: Successfully detects `/Users/you/Projects/riversync` → `https://dev.azure.com/riversync/RiverSync`
+- **Mula Detection**: Successfully detects `/Users/you/Projects/mula` → `https://dev.azure.com/mula-x/mula`
 - **Fallback Behavior**: Properly falls back to default configuration for unconfigured directories
 - **Dynamic Switching**: Context switches correctly based on current working directory
 
@@ -202,7 +202,7 @@ All 5 Azure DevOps tools are properly registered with correct schemas:
 1. **Copy Configuration File**:
 
    ```bash
-   cp /Users/wangkanai/Sources/devops-mcp/config/claude-code-servers.json ~/.config/claude-code/servers.json
+   cp /Users/you/Projects/devops-mcp/config/claude-code-servers.json ~/.config/claude-code/servers.json
    ```
 
 2. **Restart Claude Code**: The devops-mcp server will be automatically available
@@ -214,7 +214,7 @@ All 5 Azure DevOps tools are properly registered with correct schemas:
 1. **Start Server**:
 
    ```bash
-   cd /Users/wangkanai/Sources/devops-mcp
+   cd /Users/you/Projects/devops-mcp
    npm start
    ```
 

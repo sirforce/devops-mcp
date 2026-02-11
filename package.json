@@ -1,14 +1,15 @@
 {
-  "name": "@wangkanai/devops-mcp",
-  "version": "1.5.14",
+  "name": "@sirforce/devops-mcp",
+  "private": true,
+  "version": "1.7.0",
   "description": "Dynamic Azure DevOps MCP Server for directory-based environment switching",
   "main": "dist/index.js",
   "bin": {
     "devops-mcp": "dist/index.js",
-    "wangkanai-devops-mcp": "dist/index.js"
+    "sirforce-devops-mcp": "dist/index.js"
   },
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && chmod +x dist/index.js",
     "start": "node dist/index.js",
     "dev": "nodemon --exec ts-node src/index.ts",
     "clean": "rm -rf dist",
@@ -33,7 +34,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/wangkanai/devops-mcp.git"
+    "url": "git+https://github.com/sirforce/devops-mcp.git"
   },
   "keywords": [
     "mcp",
@@ -47,13 +48,13 @@
     "work-items",
     "devops"
   ],
-  "author": "Sarin Na Wangkanai",
+  "author": "Brent Ferree",
   "license": "MIT",
   "type": "commonjs",
   "bugs": {
-    "url": "https://github.com/wangkanai/devops-mcp/issues"
+    "url": "https://github.com/sirforce/devops-mcp/issues"
   },
-  "homepage": "https://github.com/wangkanai/devops-mcp#readme",
+  "homepage": "https://github.com/sirforce/devops-mcp#readme",
   "files": [
     "dist/**/*",
     "README.md",

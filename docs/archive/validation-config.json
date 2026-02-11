@@ -1,9 +1,9 @@
 {
-  "proxyPath": "/Users/wangkanai/Sources/devops-enhanced-mcp",
+  "proxyPath": "/Users/sirforce/Sources/devops-enhanced-mcp",
   "repositories": [
     {
       "name": "RiverSync",
-      "path": "/Users/wangkanai/Sources/riversync",
+      "path": "/Users/sirforce/Sources/riversync",
       "expectedOrganization": "riversync",
       "organizationUrl": "https://dev.azure.com/riversync",
       "project": "RiverSync",
@@ -11,7 +11,7 @@
     },
     {
       "name": "Mula",
-      "path": "/Users/wangkanai/Sources/mula", 
+      "path": "/Users/sirforce/Sources/mula", 
       "expectedOrganization": "mula-x",
       "organizationUrl": "https://dev.azure.com/mula-x",
       "project": "mula",

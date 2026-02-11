@@ -1,7 +1,7 @@
 # DEVOPS-MCP PROJECT - ACHIEVEMENT ARCHIVE
 
 **Project Status**: ✅ **COMPLETED & ARCHIVED (2025-07-22)**  
-**GitHub Repository**: <https://github.com/wangkanai/devops-mcp>
+**GitHub Repository**: <https://github.com/sirforce/devops-mcp>
 **Achievement Level**: 🏆 **PRODUCTION SUCCESS** - All objectives exceeded
 
 ---
@@ -92,7 +92,7 @@ devops-mcp/
 {
   "mappings": [
     {
-      "directory": "/Users/wangkanai/Sources/riversync",
+      "directory": "/Users/you/Projects/riversync",
       "config": {
         "organizationUrl": "https://dev.azure.com/riversync",
         "pat": "secure_riversync_token",
@@ -100,7 +100,7 @@ devops-mcp/
       }
     },
     {
-      "directory": "/Users/wangkanai/Sources/mula", 
+      "directory": "/Users/you/Projects/mula", 
       "config": {
         "organizationUrl": "https://dev.azure.com/mula-x",
         "pat": "secure_mula_token",
@@ -117,7 +117,7 @@ devops-mcp/
   "mcpServers": {
     "devops-mcp": {
       "command": "node",
-      "args": ["/Users/wangkanai/Sources/devops-mcp/dist/index.js"],
+      "args": ["/Users/you/Projects/devops-mcp/dist/index.js"],
       "description": "Dynamic Azure DevOps MCP Server"
     }
   }
@@ -229,14 +229,14 @@ devops-mcp/
 ### **Project-Specific Integration Documentation**
 
 #### **RiverSync Project Integration**
-- **Directory**: `/Users/wangkanai/Sources/riversync`
+- **Directory**: `/Users/you/Projects/riversync`
 - **Organization**: `https://dev.azure.com/riversync`
 - **Project**: `RiverSync`
 - **MCP Commands Documentation**: Complete Azure DevOps REST API specification
 - **Local Configuration**: `.azure-devops.json` with secure PAT token storage
 
 #### **Mula Project Integration**  
-- **Directory**: `/Users/wangkanai/Sources/mula`
+- **Directory**: `/Users/you/Projects/mula`
 - **Organization**: `https://dev.azure.com/mula-x`
 - **Project**: `mula`
 - **Local Configuration**: `.azure-devops.json` with isolated PAT authentication
@@ -291,7 +291,7 @@ devops-mcp/
 ## 🚀 PRODUCTION DEPLOYMENT STATUS
 
 ### **GitHub Repository**
-- **URL**: <https://github.com/wangkanai/devops-mcp>
+- **URL**: <https://github.com/sirforce/devops-mcp>
 - **Status**: ✅ **PRODUCTION READY & OPERATIONAL**
 - **Security**: ✅ **GITHUB SECRET SCANNING COMPLIANT**
 - **Documentation**: ✅ **COMPLETE with setup guides and examples**
@@ -316,7 +316,7 @@ devops-mcp/
 ### **Documentation Cleanup**
 This achievement archive consolidates and replaces the following scattered documentation files:
 
-#### **Main Directory (`/Users/wangkanai/Sources/`)**
+#### **Main Directory (`/Users/you/Projects/`)**
 - ✅ CLAUDE.md - Central documentation hub
 - ✅ SESSION-STATE.md - Project status tracking  
 - ✅ PLANNING.md - Implementation strategy
@@ -370,7 +370,7 @@ This achievement archive serves as the **definitive reference** for the project,
 **Final Status**: ✅ **COMPLETED & ARCHIVED**  
 **Legacy Impact**: 🏆 **PRODUCTION SUCCESS - All objectives exceeded**
 
-**Repository**: <https://github.com/wangkanai/devops-mcp>
-**Archive Location**: `/Users/wangkanai/Sources/devops-mcp/ACHIEVED.md`
+**Repository**: <https://github.com/sirforce/devops-mcp>
+**Archive Location**: `/Users/you/Projects/devops-mcp/ACHIEVED.md`
 
 🎉 **PROJECT SUCCESSFULLY COMPLETED** 🎉

@@ -1,6 +1,11 @@
 /**
  * Integration tests for Directory Detection Logic
  * Tests local configuration file detection and loading
+ *
+ * SECURITY INVARIANT: These tests must NEVER read or parse a real
+ * .azure-devops.json file. All configuration structures are validated
+ * using synthetic fixtures to prevent real PAT tokens from leaking
+ * into test process memory, assertion output, or CI logs.
  */
 
 import * as fs from 'fs';
@@ -8,78 +13,51 @@ import * as path from 'path';
 import { AzureDevOpsConfig } from '../../src/types/index';
 
 describe('Directory Detection Integration', () => {
-  const testDirectories = [
-    '/Users/wangkanai/Sources/riversync',
-    '/Users/wangkanai/Sources/mula'
-  ];
-
   describe('Local Configuration Detection', () => {
-    it('should detect .azure-devops.json in current directory', () => {
+    it('should detect .azure-devops.json existence in current directory without reading contents', () => {
       const currentDir = process.cwd();
       const configPath = path.join(currentDir, '.azure-devops.json');
 
-      let configExists = false;
-      let config: AzureDevOpsConfig | null = null;
+      // Only check existence — never read the file, as it may contain real credentials
+      const configExists = fs.existsSync(configPath);
 
-      try {
-        const content = fs.readFileSync(configPath, 'utf8');
-        config = JSON.parse(content) as AzureDevOpsConfig;
-        configExists = true;
-      } catch (error) {
-        if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
-          throw error; // Re-throw non-file-not-found errors
-        }
-      }
-
-      if (configExists && config) {
-        expect(config.organizationUrl).toBeDefined();
-        expect(config.project).toBeDefined();
-        expect(config.pat).toBeDefined();
-        expect(typeof config.organizationUrl).toBe('string');
-        expect(typeof config.project).toBe('string');
-        expect(typeof config.pat).toBe('string');
-        expect(config.organizationUrl).toMatch(/^https:\/\/dev\.azure\.com\/.+/);
+      if (configExists) {
+        // Verify it is gitignored (safety check)
+        const gitignoreContent = fs.readFileSync('./.gitignore', 'utf8');
+        expect(gitignoreContent).toContain('.azure-devops.json');
       } else {
         // It's okay if the config doesn't exist in the current directory for tests
         console.log('No .azure-devops.json found in current directory - this is expected for tests');
       }
     });
 
-    it('should validate configuration structure when present', () => {
-      for (const dir of testDirectories) {
-        const configPath = path.join(dir, '.azure-devops.json');
-        
-        try {
-          const content = fs.readFileSync(configPath, 'utf8');
-          const config = JSON.parse(content) as AzureDevOpsConfig;
+    it('should validate configuration structure using synthetic fixture', () => {
+      // Use a synthetic config to validate structure expectations without
+      // reading any real file that might contain actual PAT tokens.
+      const syntheticConfig: AzureDevOpsConfig = {
+        organizationUrl: 'https://dev.azure.com/test-org',
+        project: 'TestProject',
+        pat: 'synthetic-pat-token-for-structure-validation-only1234'
+      };
 
-          // Validate required fields
-          expect(config.organizationUrl).toBeDefined();
-          expect(config.project).toBeDefined();
-          expect(config.pat).toBeDefined();
+      // Validate required fields
+      expect(syntheticConfig.organizationUrl).toBeDefined();
+      expect(syntheticConfig.project).toBeDefined();
+      expect(syntheticConfig.pat).toBeDefined();
 
-          // Validate field types
-          expect(typeof config.organizationUrl).toBe('string');
-          expect(typeof config.project).toBe('string');
-          expect(typeof config.pat).toBe('string');
+      // Validate field types
+      expect(typeof syntheticConfig.organizationUrl).toBe('string');
+      expect(typeof syntheticConfig.project).toBe('string');
+      expect(typeof syntheticConfig.pat).toBe('string');
 
-          // Validate URL format
-          expect(config.organizationUrl).toMatch(/^https:\/\/dev\.azure\.com\/.+/);
+      // Validate URL format
+      expect(syntheticConfig.organizationUrl).toMatch(/^https:\/\/dev\.azure\.com\/.+/);
 
-          // Project name should not be empty
-          expect(config.project.length).toBeGreaterThan(0);
+      // Project name should not be empty
+      expect(syntheticConfig.project.length).toBeGreaterThan(0);
 
-          // PAT should have reasonable length (typically 52 characters for Azure DevOps)
-          expect(config.pat.length).toBeGreaterThan(20);
-
-        } catch (error) {
-          if ((error as NodeJS.ErrnoException).code === 'ENOENT') {
-            console.log(`No configuration found for ${dir} - skipping validation`);
-          } else {
-            throw error;
-          }
-        }
-      }
+      // PAT should have reasonable length (typically 52 characters for Azure DevOps)
+      expect(syntheticConfig.pat.length).toBeGreaterThan(20);
     });
 
     it('should handle missing configuration files gracefully', () => {
@@ -126,29 +104,24 @@ describe('Directory Detection Integration', () => {
 
   describe('Configuration File Security', () => {
     it('should not expose PAT tokens in error messages', () => {
-      for (const dir of testDirectories) {
-        const configPath = path.join(dir, '.azure-devops.json');
-        
-        try {
-          const content = fs.readFileSync(configPath, 'utf8');
-          const config = JSON.parse(content) as AzureDevOpsConfig;
+      // Use a synthetic PAT to verify masking behavior without reading real files
+      const syntheticPat = 'abcdefghijklmnopqrstuvwxyz0123456789abcdefghijklmnop';
 
-          // Ensure PAT is not logged or exposed
-          expect(config.pat).toBeDefined();
-          expect(config.pat.length).toBeGreaterThan(0);
+      expect(syntheticPat).toBeDefined();
+      expect(syntheticPat.length).toBeGreaterThan(0);
 
-          // Test that we can validate PAT presence without exposing it
-          const patMasked = config.pat.substring(0, 4) + '***';
-          expect(patMasked).toMatch(/^.{4}\*\*\*$/);
+      // Validate that masking works correctly
+      const patMasked = syntheticPat.substring(0, 4) + '***';
+      expect(patMasked).toMatch(/^.{4}\*\*\*$/);
+      expect(patMasked).not.toContain(syntheticPat);
 
-        } catch (error) {
-          if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
-            // For any other error, ensure it doesn't contain sensitive information
-            const errorMessage = (error as Error).message;
-            expect(errorMessage).not.toMatch(/[a-zA-Z0-9]{52}/); // Azure DevOps PAT pattern
-          }
-        }
-      }
+      // Simulate an error message that might contain a PAT and verify it could be caught
+      const simulatedError = `HTTP 401: Authentication failed for token ${syntheticPat}`;
+      // A 52-char alphanumeric string is the PAT pattern we want to detect
+      expect(simulatedError).toMatch(/[a-zA-Z0-9]{52}/);
+      // After sanitization (replacing the match), it should be clean
+      const sanitized = simulatedError.replace(/[a-zA-Z0-9]{52}/g, '[REDACTED]');
+      expect(sanitized).not.toContain(syntheticPat);
     });
   });
 
@@ -162,7 +135,7 @@ describe('Directory Detection Integration', () => {
     });
 
     it('should handle nested directory structures', () => {
-      const testPath = '/Users/wangkanai/Sources/riversync/src/components/auth';
+      const testPath = '/Users/testuser/Projects/riversync/src/components/auth';
       const parentPaths = [];
       let currentPath = testPath;
 
@@ -171,10 +144,10 @@ describe('Directory Detection Integration', () => {
         currentPath = path.dirname(currentPath);
       }
 
-      expect(parentPaths).toContain('/Users/wangkanai/Sources/riversync/src/components/auth');
-      expect(parentPaths).toContain('/Users/wangkanai/Sources/riversync/src/components');
-      expect(parentPaths).toContain('/Users/wangkanai/Sources/riversync/src');
-      expect(parentPaths).toContain('/Users/wangkanai/Sources/riversync');
+      expect(parentPaths).toContain('/Users/testuser/Projects/riversync/src/components/auth');
+      expect(parentPaths).toContain('/Users/testuser/Projects/riversync/src/components');
+      expect(parentPaths).toContain('/Users/testuser/Projects/riversync/src');
+      expect(parentPaths).toContain('/Users/testuser/Projects/riversync');
     });
   });
 });

@@ -58,10 +58,10 @@ npm publish --access public
 #### 5. Verify Publication
 ```bash
 # Check if package is published
-npm view @wangkanai/devops-mcp
+npm view @sirforce/devops-mcp
 
 # Check package info
-npm info @wangkanai/devops-mcp
+npm info @sirforce/devops-mcp
 ```
 
 ### Automated Publishing with GitHub Actions
@@ -89,15 +89,15 @@ The repository includes automated npm publishing via `.github/workflows/npm-publ
 claude mcp add devops-mcp -- devops-mcp
 ```
 
-**Note**: NPM automatically maps the scoped package `@wangkanai/devops-mcp` to binary name `devops-mcp`. You can also use:
+**Note**: NPM automatically maps the scoped package `@sirforce/devops-mcp` to binary name `devops-mcp`. You can also use:
 ```bash
-claude mcp add devops-mcp -- -y @wangkanai/devops-mcp
+claude mcp add devops-mcp -- -y @sirforce/devops-mcp
 ```
 
 #### Method 2: Global Installation
 ```bash
 # Install globally first
-npm install -g @wangkanai/devops-mcp
+npm install -g @sirforce/devops-mcp
 
 # Add to Claude MCP
 claude mcp add devops-mcp -- devops-mcp
@@ -106,10 +106,10 @@ claude mcp add devops-mcp -- devops-mcp
 #### Method 3: Local Installation
 ```bash
 # Install locally in a project
-npm install @wangkanai/devops-mcp
+npm install @sirforce/devops-mcp
 
 # Add to Claude MCP with absolute path
-claude mcp add devops-mcp -- -y @wangkanai/devops-mcp
+claude mcp add devops-mcp -- -y @sirforce/devops-mcp
 ```
 
 ### Configuration
@@ -157,7 +157,7 @@ chmod 600 .azure-devops.json
 #### 1. Test MCP Server
 ```bash
 # Verify server starts correctly
-npx -y @wangkanai/devops-mcp
+npx -y @sirforce/devops-mcp
 
 # Test with Claude Code
 claude mcp list
@@ -186,7 +186,7 @@ Claude will automatically configure the MCP server when added. The configuration
   "mcpServers": {
     "devops-mcp": {
       "command": "npx",
-      "args": ["@wangkanai/devops-mcp"],
+      "args": ["@sirforce/devops-mcp"],
       "env": {}
     }
   }
@@ -245,7 +245,7 @@ mcp__devops-mcp__update-work-item \
 #### 1. Package Not Found
 ```bash
 # Verify package is published
-npm view @wangkanai/devops-mcp
+npm view @sirforce/devops-mcp
 
 # Check NPM registry
 npm config get registry
@@ -257,7 +257,7 @@ npm config get registry
 npm cache clean --force
 
 # Try with verbose logging
-npm install @wangkanai/devops-mcp --verbose
+npm install @sirforce/devops-mcp --verbose
 ```
 
 #### 3. Claude MCP Issues
@@ -267,7 +267,7 @@ claude mcp list
 
 # Remove and re-add server
 claude mcp remove devops-mcp
-claude mcp add devops-mcp -- -y @wangkanai/devops-mcp
+claude mcp add devops-mcp -- -y @sirforce/devops-mcp
 ```
 
 #### 4. Configuration Issues
@@ -283,7 +283,7 @@ ls -la .azure-devops.json
 ```bash
 # Enable debug logging
 export DEBUG=devops-mcp
-npx -y @wangkanai/devops-mcp
+npx -y @sirforce/devops-mcp
 ```
 
 ## 📈 Updates and Versioning
@@ -291,10 +291,10 @@ npx -y @wangkanai/devops-mcp
 ### Updating the Package
 ```bash
 # Update to latest version
-npm update -g @wangkanai/devops-mcp
+npm update -g @sirforce/devops-mcp
 
 # Or reinstall specific version
-npm install -g @wangkanai/devops-mcp@1.0.1
+npm install -g @sirforce/devops-mcp@1.0.1
 ```
 
 ### Version History
@@ -306,4 +306,4 @@ Major version updates may include breaking changes. Check the changelog before u
 
 ---
 
-**Support**: For issues and questions, visit the [GitHub repository](https://github.com/wangkanai/devops-mcp) or file an issue.
+**Support**: For issues and questions, visit the [GitHub repository](https://github.com/sirforce/devops-mcp) or file an issue.

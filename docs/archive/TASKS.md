@@ -157,14 +157,14 @@ This document tracks the implementation progress of the Azure DevOps MCP Proxy s
 ## Project Configuration Status ✅ COMPLETE
 
 ### RiverSync Project Configuration ✅ COMPLETE
-- **Directory**: `/Users/wangkanai/Sources/riversync`
+- **Directory**: `/Users/you/Projects/riversync`
 - **Organization**: `https://dev.azure.com/riversync`
 - **Project**: `RiverSync`
 - **Authentication**: PAT token configured and validated
 - **Status**: Ready for production use
 
 ### Mula Project Configuration ✅ COMPLETE
-- **Directory**: `/Users/wangkanai/Sources/mula`
+- **Directory**: `/Users/you/Projects/mula`
 - **Organization**: `https://dev.azure.com/mula-x`
 - **Project**: `mula`  
 - **Authentication**: PAT token configured and validated
@@ -262,9 +262,9 @@ The Azure DevOps MCP Proxy server has been **successfully implemented** and is *
 Once Claude Code is restarted:
 
 1. **Context Detection Testing**:
-   - Navigate to `/Users/wangkanai/Sources/riversync` directory
+   - Navigate to `/Users/you/Projects/riversync` directory
    - Verify RiverSync Azure DevOps context is active
-   - Navigate to `/Users/wangkanai/Sources/mula` directory  
+   - Navigate to `/Users/you/Projects/mula` directory  
    - Verify Mula Azure DevOps context is active
 
 2. **Tool Functionality Testing**:

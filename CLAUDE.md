@@ -4,28 +4,62 @@ Comprehensive context for Claude Code to work effectively with the Azure DevOps 
 
 ---
 
+## 🔒 **IMPORTANT SECURITY NOTICE**
+
+**This MCP server is designed for LOCALHOST (127.0.0.1) USE ONLY**
+
+- ⚠️ **NOT available on NPM** - This package is marked as `private: true` and cannot be published
+- 🏠 **Local installation only** - Must be built and installed from source
+- 🔐 **Credential protection** - `.claudeignore` configured to prevent sharing of `.azure-devops.json`
+- 🔑 **Read-only PAT tokens** - Azure DevOps Personal Access Tokens should have minimal permissions
+- 🚫 **Never commit PAT tokens** - Always add `.azure-devops.json` to `.gitignore`
+
+---
+
 ## 📋 **Project Overview**
 
 ### **devops-mcp** - Azure DevOps MCP Server for Claude
-**Technology**: Node.js, TypeScript, MCP Protocol  
-**Purpose**: Dynamic Azure DevOps integration with intelligent directory-based authentication switching  
-**Status**: ✅ **PRODUCTION READY** - Active deployment with >95% test coverage  
+**Technology**: Node.js, TypeScript, MCP Protocol
+**Purpose**: Dynamic Azure DevOps integration with intelligent directory-based authentication switching
+**Status**: ✅ **PRODUCTION READY** - Active deployment with >95% test coverage
+**Version**: 1.7.0
 
-**GitHub**: <https://github.com/wangkanai/devops-mcp>  
-**NPM Package**: [@wangkanai/devops-mcp](https://www.npmjs.com/package/@wangkanai/devops-mcp)  
+**GitHub**: <https://github.com/sirforce/devops-mcp>
+**Distribution**: **LOCAL INSTALLATION ONLY** (not on NPM registry)
 **Features**: Local `.azure-devops.json` configuration, secure PAT tokens, comprehensive testing, full Azure DevOps API integration
 
 ---
 
 ## 🚀 **Quick Start for Claude Users**
 
-### **Immediate Setup (2 minutes)**
+### **Installation (Local Build Required)**
+
+**IMPORTANT**: This package is NOT on NPM. You must build and install locally.
 
 ```bash
-# 1. Install via Claude Code (Recommended)
-claude mcp add devops-mcp -- -y @wangkanai/devops-mcp
+# 1. Clone or navigate to the repository
+cd /path/to/devops-mcp
 
-# 2. Create configuration in your project directory
+# 2. Install dependencies
+npm install
+
+# 3. Build the TypeScript code
+npm run build
+
+# 4. Install globally for localhost use
+npm install -g
+
+# 5. Configure MCP server in Claude Code
+claude mcp add devops-mcp -- npx @sirforce/devops-mcp
+
+# 6. Verify installation
+claude mcp list
+```
+
+### **Configuration Setup**
+
+```bash
+# Create configuration in your project directory
 cat > .azure-devops.json << EOF
 {
   "organizationUrl": "https://dev.azure.com/your-org",
@@ -38,7 +72,13 @@ EOF
 # 3. Secure your configuration
 echo ".azure-devops.json" >> .gitignore
 
-# 4. Verify installation
+# 4. Verify .claudeignore is protecting your credentials
+# The .claudeignore file should contain:
+#   .azure-devops.json
+#   **/.azure-devops.json
+# This prevents Claude Code from sharing your PAT tokens
+
+# 5. Verify installation
 mcp__devops-mcp__get-current-context
 ```
 
@@ -51,7 +91,7 @@ Add to your MCP settings file:
   "mcpServers": {
     "devops-mcp": {
       "command": "npx",
-      "args": ["-y", "@wangkanai/devops-mcp"]
+      "args": ["-y", "@sirforce/devops-mcp"]
     }
   }
 }
@@ -60,6 +100,55 @@ Add to your MCP settings file:
 **Settings Location**:
 - **macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
 - **Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
+
+---
+
+## 🔐 **Security & Credential Protection**
+
+### **PAT Token Security**
+Your Azure DevOps Personal Access Token (PAT) is stored in `.azure-devops.json` and provides **READ-ONLY** access to your Azure DevOps organization.
+
+**Required PAT Permissions (Minimal)**:
+```
+✅ Work Items: Read & Write
+✅ Code: Read
+✅ Build: Read & Execute
+✅ Project and Team: Read
+❌ Full Access (NOT required - never use)
+```
+
+### **.claudeignore Protection**
+The `.claudeignore` file prevents Claude Code from accessing or sharing your credentials:
+
+```gitignore
+# .claudeignore
+.azure-devops.json
+**/.azure-devops.json
+*.pat
+*.token
+.env
+```
+
+**What this protects**:
+- 🔒 PAT tokens are never sent to Claude's servers
+- 🔒 Configuration files stay on localhost (127.0.0.1)
+- 🔒 Credentials cannot be accidentally shared in conversations
+- 🔒 Multi-project setups keep tokens isolated
+
+### **Best Practices**
+1. ✅ **Always use read-only PAT tokens** when possible
+2. ✅ **Never commit `.azure-devops.json`** to version control
+3. ✅ **Verify `.claudeignore`** is present before sharing projects
+4. ✅ **Rotate PAT tokens regularly** (every 90 days recommended)
+5. ✅ **Use organization-level PATs** not personal ones for team projects
+6. ✅ **Set PAT expiration dates** to minimize exposure risk
+
+### **Localhost-Only Operation**
+This MCP server is designed to run **exclusively on localhost (127.0.0.1)**:
+- ✅ No network exposure - binds only to 127.0.0.1
+- ✅ No remote access - cannot be accessed from other machines
+- ✅ No NPM distribution - must be built and installed locally
+- ✅ No cloud hosting - runs entirely on your local machine
 
 ---
 
@@ -302,7 +391,7 @@ All major issues have been resolved in the current version:
 #### **GitHub Issue #53** - Microsoft.VSTS Field Resolution ✅ **FIXED**
 - **Problem**: Work item creation failing with Microsoft.VSTS field mapping
 - **Solution**: Implemented proper field name resolution system
-- **Commit**: [`48ed08c595ab5f7360650a225f4c683ebd294d63`](https://github.com/wangkanai/devops-mcp/commit/48ed08c595ab5f7360650a225f4c683ebd294d63)
+- **Commit**: [`48ed08c595ab5f7360650a225f4c683ebd294d63`](https://github.com/sirforce/devops-mcp/commit/48ed08c595ab5f7360650a225f4c683ebd294d63)
 
 #### **GitHub Issue #8** - Work Item Creation 404 Error ✅ **FIXED**
 - **Problem**: Incorrect endpoint format causing 404 errors
@@ -474,11 +563,23 @@ mcp__devops-mcp__get-current-context
 
 ---
 
-**Documentation Version**: 2.0  
-**Created**: 2025-07-27  
-**Last Updated**: 2025-07-27  
-**Project Status**: Production Ready (Active Deployment)  
-**Primary Technologies**: Node.js, TypeScript, MCP Protocol, Azure DevOps REST API v7.1+  
-**Test Coverage**: >95%  
-**GitHub**: <https://github.com/wangkanai/devops-mcp>  
-**NPM**: [@wangkanai/devops-mcp](https://www.npmjs.com/package/@wangkanai/devops-mcp)
+**Documentation Version**: 3.0
+**Package Version**: 1.7.0
+**Created**: 2025-07-27
+**Last Updated**: 2026-02-11
+**Project Status**: Production Ready (Active Deployment)
+**Primary Technologies**: Node.js, TypeScript, MCP Protocol, Azure DevOps REST API v7.1+
+**Test Coverage**: >95%
+**Distribution**: **LOCALHOST ONLY** (127.0.0.1) - NOT on NPM
+**GitHub**: <https://github.com/sirforce/devops-mcp>
+
+---
+
+## 🔒 **Security Reminder**
+
+**This MCP server operates exclusively on localhost (127.0.0.1)**
+- ✅ Not published to NPM registry
+- ✅ Local installation only via `npm install -g`
+- ✅ `.claudeignore` protects your `.azure-devops.json` credentials
+- ✅ PAT tokens provide read-only Azure DevOps access
+- ✅ No network exposure beyond localhost

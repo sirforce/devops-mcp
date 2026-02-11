@@ -12,7 +12,7 @@ describe('DirectoryDetector', () => {
   beforeEach(() => {
     mockMappings = [
       {
-        directory: '/Users/wangkanai/Sources/riversync',
+        directory: '/Users/testuser/Projects/riversync',
         config: {
           organizationUrl: 'https://dev.azure.com/riversync',
           pat: 'test-pat-1',
@@ -20,7 +20,7 @@ describe('DirectoryDetector', () => {
         }
       },
       {
-        directory: '/Users/wangkanai/Sources/mula',
+        directory: '/Users/testuser/Projects/mula',
         config: {
           organizationUrl: 'https://dev.azure.com/mula-x',
           pat: 'test-pat-2',
@@ -34,7 +34,7 @@ describe('DirectoryDetector', () => {
 
   describe('detectConfiguration', () => {
     it('should detect RiverSync configuration for exact directory match', () => {
-      const config = detector.detectConfiguration('/Users/wangkanai/Sources/riversync');
+      const config = detector.detectConfiguration('/Users/testuser/Projects/riversync');
       
       expect(config).not.toBeNull();
       expect(config?.project).toBe('RiverSync');
@@ -43,7 +43,7 @@ describe('DirectoryDetector', () => {
     });
 
     it('should detect Mula configuration for exact directory match', () => {
-      const config = detector.detectConfiguration('/Users/wangkanai/Sources/mula');
+      const config = detector.detectConfiguration('/Users/testuser/Projects/mula');
       
       expect(config).not.toBeNull();
       expect(config?.project).toBe('mula');
@@ -52,7 +52,7 @@ describe('DirectoryDetector', () => {
     });
 
     it('should detect parent configuration for nested directories', () => {
-      const config = detector.detectConfiguration('/Users/wangkanai/Sources/riversync/src/components');
+      const config = detector.detectConfiguration('/Users/testuser/Projects/riversync/src/components');
       
       expect(config).not.toBeNull();
       expect(config?.project).toBe('RiverSync');
@@ -60,7 +60,7 @@ describe('DirectoryDetector', () => {
     });
 
     it('should return null for directories with no match', () => {
-      const config = detector.detectConfiguration('/Users/wangkanai/Sources/other-project');
+      const config = detector.detectConfiguration('/Users/testuser/Projects/other-project');
       
       expect(config).toBeNull();
     });
@@ -68,7 +68,7 @@ describe('DirectoryDetector', () => {
     it('should use current working directory when no directory provided', () => {
       // Mock process.cwd() to return a known path
       const originalCwd = process.cwd;
-      process.cwd = jest.fn().mockReturnValue('/Users/wangkanai/Sources/mula');
+      process.cwd = jest.fn().mockReturnValue('/Users/testuser/Projects/mula');
 
       const config = detector.detectConfiguration();
       
@@ -84,7 +84,7 @@ describe('DirectoryDetector', () => {
       const specificMappings: ProjectMapping[] = [
         ...mockMappings,
         {
-          directory: '/Users/wangkanai/Sources/riversync/frontend',
+          directory: '/Users/testuser/Projects/riversync/frontend',
           config: {
             organizationUrl: 'https://dev.azure.com/riversync-frontend',
             pat: 'frontend-pat',
@@ -94,7 +94,7 @@ describe('DirectoryDetector', () => {
       ];
 
       const specificDetector = new DirectoryDetector(specificMappings);
-      const config = specificDetector.detectConfiguration('/Users/wangkanai/Sources/riversync/frontend/components');
+      const config = specificDetector.detectConfiguration('/Users/testuser/Projects/riversync/frontend/components');
       
       expect(config).not.toBeNull();
       expect(config?.project).toBe('RiverSync-Frontend');
@@ -103,7 +103,7 @@ describe('DirectoryDetector', () => {
 
   describe('getProjectContext', () => {
     it('should return project context for configured directory', () => {
-      const context = detector.getProjectContext('/Users/wangkanai/Sources/mula');
+      const context = detector.getProjectContext('/Users/testuser/Projects/mula');
       
       expect(context).not.toBeNull();
       expect(context?.projectName).toBe('mula');
@@ -111,7 +111,7 @@ describe('DirectoryDetector', () => {
     });
 
     it('should return null for unconfigured directory', () => {
-      const context = detector.getProjectContext('/Users/wangkanai/Sources/unknown');
+      const context = detector.getProjectContext('/Users/testuser/Projects/unknown');
       
       expect(context).toBeNull();
     });
@@ -119,13 +119,13 @@ describe('DirectoryDetector', () => {
 
   describe('isConfiguredDirectory', () => {
     it('should return true for configured directory', () => {
-      const isConfigured = detector.isConfiguredDirectory('/Users/wangkanai/Sources/riversync');
+      const isConfigured = detector.isConfiguredDirectory('/Users/testuser/Projects/riversync');
       
       expect(isConfigured).toBe(true);
     });
 
     it('should return false for unconfigured directory', () => {
-      const isConfigured = detector.isConfiguredDirectory('/Users/wangkanai/Sources/unknown');
+      const isConfigured = detector.isConfiguredDirectory('/Users/testuser/Projects/unknown');
       
       expect(isConfigured).toBe(false);
     });
@@ -137,8 +137,8 @@ describe('DirectoryDetector', () => {
       
       expect(Array.isArray(directories)).toBe(true);
       expect(directories).toHaveLength(2);
-      expect(directories).toContain('/Users/wangkanai/Sources/riversync');
-      expect(directories).toContain('/Users/wangkanai/Sources/mula');
+      expect(directories).toContain('/Users/testuser/Projects/riversync');
+      expect(directories).toContain('/Users/testuser/Projects/mula');
     });
   });
 
@@ -150,9 +150,9 @@ describe('DirectoryDetector', () => {
         project: 'NewProject'
       };
 
-      detector.addMapping('/Users/wangkanai/Sources/new-project', newConfig);
+      detector.addMapping('/Users/testuser/Projects/new-project', newConfig);
       
-      const config = detector.detectConfiguration('/Users/wangkanai/Sources/new-project');
+      const config = detector.detectConfiguration('/Users/testuser/Projects/new-project');
       expect(config).not.toBeNull();
       expect(config?.project).toBe('NewProject');
     });
@@ -160,16 +160,16 @@ describe('DirectoryDetector', () => {
 
   describe('removeMapping', () => {
     it('should remove existing directory mapping', () => {
-      const removed = detector.removeMapping('/Users/wangkanai/Sources/mula');
+      const removed = detector.removeMapping('/Users/testuser/Projects/mula');
       
       expect(removed).toBe(true);
       
-      const config = detector.detectConfiguration('/Users/wangkanai/Sources/mula');
+      const config = detector.detectConfiguration('/Users/testuser/Projects/mula');
       expect(config).toBeNull();
     });
 
     it('should return false when removing non-existent mapping', () => {
-      const removed = detector.removeMapping('/Users/wangkanai/Sources/non-existent');
+      const removed = detector.removeMapping('/Users/testuser/Projects/non-existent');
       
       expect(removed).toBe(false);
     });
@@ -185,7 +185,7 @@ describe('DirectoryDetector', () => {
 
       detector.setDefaultConfig(defaultConfig);
       
-      const config = detector.detectConfiguration('/Users/wangkanai/Sources/unknown');
+      const config = detector.detectConfiguration('/Users/testuser/Projects/unknown');
       expect(config).not.toBeNull();
       expect(config?.project).toBe('DefaultProject');
     });

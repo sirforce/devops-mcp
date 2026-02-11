@@ -11,7 +11,7 @@ Comprehensive workflow guide for Claude users to maximize productivity with the 
 #### **1. Install via Claude Code (Recommended)**
 ```bash
 # Add devops-mcp to Claude Code
-claude mcp add devops-mcp -- -y @wangkanai/devops-mcp
+claude mcp add devops-mcp -- -y @sirforce/devops-mcp
 
 # Verify installation
 mcp__devops-mcp__get-current-context
@@ -25,7 +25,7 @@ Add to your MCP settings file:
   "mcpServers": {
     "devops-mcp": {
       "command": "npx",
-      "args": ["-y", "@wangkanai/devops-mcp"]
+      "args": ["-y", "@sirforce/devops-mcp"]
     }
   }
 }
@@ -792,9 +792,9 @@ mcp__devops-mcp__create-work-item \
 - **PAT Token Security**: [Authentication Best Practices](https://docs.microsoft.com/en-us/azure/devops/organizations/accounts/use-personal-access-tokens-to-authenticate)
 
 ### **Community & Support**
-- **GitHub Repository**: [wangkanai/devops-mcp](https://github.com/wangkanai/devops-mcp)
-- **NPM Package**: [@wangkanai/devops-mcp](https://www.npmjs.com/package/@wangkanai/devops-mcp)
-- **Issue Tracking**: [GitHub Issues](https://github.com/wangkanai/devops-mcp/issues)
+- **GitHub Repository**: [sirforce/devops-mcp](https://github.com/sirforce/devops-mcp)
+- **NPM Package**: [@sirforce/devops-mcp](https://www.npmjs.com/package/@sirforce/devops-mcp)
+- **Issue Tracking**: [GitHub Issues](https://github.com/sirforce/devops-mcp/issues)
 
 ---
 
@@ -804,5 +804,5 @@ mcp__devops-mcp__create-work-item \
 **Project Status**: Production Ready (Active Deployment)  
 **Primary Technologies**: Node.js, TypeScript, MCP Protocol, Azure DevOps REST API v7.1+  
 **Test Coverage**: >95%  
-**GitHub**: <https://github.com/wangkanai/devops-mcp>  
-**NPM**: [@wangkanai/devops-mcp](https://www.npmjs.com/package/@wangkanai/devops-mcp)
+**GitHub**: <https://github.com/sirforce/devops-mcp>  
+**NPM**: [@sirforce/devops-mcp](https://www.npmjs.com/package/@sirforce/devops-mcp)

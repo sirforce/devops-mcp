@@ -19,6 +19,62 @@ export class ToolHandlers {
   }
 
   /**
+   * Sanitize a string to remove any occurrence of the current PAT token.
+   * Used to prevent accidental PAT leakage in error messages, logs, or response bodies.
+   * Replaces the PAT and its base64-encoded form with a redacted placeholder.
+   */
+  private sanitizePat(text: string): string {
+    if (!this.currentConfig?.pat) {
+      return text;
+    }
+
+    let sanitized = text;
+    const pat = this.currentConfig.pat;
+
+    // Remove the raw PAT value if it appears anywhere in the text
+    if (sanitized.includes(pat)) {
+      sanitized = sanitized.replace(new RegExp(pat.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), '[PAT_REDACTED]');
+    }
+
+    // Also remove the base64-encoded form (as used in the Authorization header)
+    const base64Pat = Buffer.from(`:${pat}`).toString('base64');
+    if (sanitized.includes(base64Pat)) {
+      sanitized = sanitized.replace(new RegExp(base64Pat.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'g'), '[PAT_BASE64_REDACTED]');
+    }
+
+    return sanitized;
+  }
+
+  /**
+   * Escape a value for safe inclusion in a WIQL query string.
+   * Prevents WIQL injection by escaping single quotes.
+   */
+  private escapeWiqlValue(value: string): string {
+    // WIQL uses single-quoted string literals; escape embedded single quotes by doubling them
+    return value.replace(/'/g, "''");
+  }
+
+  /**
+   * Sanitize all text content in a tool response to prevent PAT leakage.
+   * Applied as defense-in-depth to every response before it leaves the server.
+   */
+  private sanitizeResponse(response: any): any {
+    if (!response || !response.content || !Array.isArray(response.content)) {
+      return response;
+    }
+
+    return {
+      ...response,
+      content: response.content.map((item: any) => {
+        if (item.type === 'text' && typeof item.text === 'string') {
+          return { ...item, text: this.sanitizePat(item.text) };
+        }
+        return item;
+      }),
+    };
+  }
+
+  /**
    * Handle tool calls with current environment context
    */
   async handleToolCall(request: any): Promise<any> {
@@ -29,44 +85,57 @@ export class ToolHandlers {
     const { name, arguments: args } = request.params;
     
     try {
+      let result;
       switch (name) {
         case 'get-work-items':
-          return await this.getWorkItems(args || {});
+          result = await this.getWorkItems(args || {});
+          break;
         case 'create-work-item':
-          return await this.createWorkItem(args || {});
+          result = await this.createWorkItem(args || {});
+          break;
         case 'update-work-item':
-          return await this.updateWorkItem(args || {});
+          result = await this.updateWorkItem(args || {});
+          break;
         case 'add-work-item-comment':
-          return await this.addWorkItemComment(args || {});
+          result = await this.addWorkItemComment(args || {});
+          break;
         case 'get-repositories':
-          return await this.getRepositories(args || {});
+          result = await this.getRepositories(args || {});
+          break;
         case 'get-builds':
-          return await this.getBuilds(args || {});
+          result = await this.getBuilds(args || {});
+          break;
         case 'get-pull-requests':
-          return await this.getPullRequests(args || {});
+          result = await this.getPullRequests(args || {});
+          break;
         case 'trigger-pipeline':
-          return await this.triggerPipeline(args || {});
+          result = await this.triggerPipeline(args || {});
+          break;
         case 'get-pipeline-status':
-          return await this.getPipelineStatus(args || {});
+          result = await this.getPipelineStatus(args || {});
+          break;
         default:
           throw new Error(`Unknown tool: ${name}`);
       }
+      // Defense-in-depth: sanitize PAT from all successful responses
+      return this.sanitizeResponse(result);
     } catch (error) {
       // Sanitize tool name to prevent log injection
       const sanitizedName = typeof name === 'string' ? name.replace(/[\r\n\t]/g, '_') : 'unknown';
       console.error(`Error in tool handler ${sanitizedName}:`, error instanceof Error ? error.message : 'Unknown error');
-      return {
+      return this.sanitizeResponse({
         content: [{
           type: 'text',
-          text: `Error executing ${sanitizedName}: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          text: `Error executing ${sanitizedName}: ${error instanceof Error ? this.sanitizePat(error.message) : 'Unknown error'}`,
         }],
         isError: true,
-      };
+      });
     }
   }
 
   /**
    * Make authenticated API request to Azure DevOps
+   * Security: Enforces HTTPS, validates hostname, and sanitizes PAT from error output.
    */
   private async makeApiRequest(endpoint: string, method: string = 'GET', body?: any): Promise<any> {
     if (!this.currentConfig) {
@@ -76,11 +145,21 @@ export class ToolHandlers {
     const { organizationUrl, pat, project } = this.currentConfig;
     const baseUrl = `${organizationUrl}/${project}/_apis`;
     const requestUrl = `${baseUrl}${endpoint}`;
-    
+
     return new Promise((resolve, reject) => {
       const urlParts = new url.URL(requestUrl);
+
+      // Security: Explicitly enforce HTTPS - never send PAT over plaintext
+      if (urlParts.protocol !== 'https:') {
+        reject(new Error(
+          `Security error: Refusing to send authenticated request over non-HTTPS protocol '${urlParts.protocol}'. ` +
+          `All Azure DevOps API requests must use HTTPS to protect PAT tokens.`
+        ));
+        return;
+      }
+
       const postData = body ? JSON.stringify(body) : undefined;
-      
+
       const options = {
         hostname: urlParts.hostname,
         port: urlParts.port || 443,
@@ -110,7 +189,14 @@ export class ToolHandlers {
               const result = data ? JSON.parse(data) : {};
               resolve(result);
             } else {
-              reject(new Error(`HTTP ${res.statusCode}: ${data}`));
+              // Security: Sanitize the response body to ensure the PAT is never
+              // leaked through error messages (e.g., if a proxy echoes headers back)
+              const sanitizedData = this.sanitizePat(data);
+              // Truncate excessively long error bodies to prevent log flooding
+              const truncatedData = sanitizedData.length > 1000
+                ? sanitizedData.substring(0, 1000) + '... [truncated]'
+                : sanitizedData;
+              reject(new Error(`HTTP ${res.statusCode}: ${truncatedData}`));
             }
           } catch (error) {
             reject(new Error(`Failed to parse response: ${error}`));
@@ -119,7 +205,8 @@ export class ToolHandlers {
       });
 
       req.on('error', (error) => {
-        reject(new Error(`Request failed: ${error.message}`));
+        // Security: Sanitize network error messages in case PAT leaks through proxy errors
+        reject(new Error(`Request failed: ${this.sanitizePat(error.message)}`));
       });
 
       if (postData) {
@@ -131,16 +218,134 @@ export class ToolHandlers {
   }
 
   /**
+   * Fetch work item details by IDs in batches to respect Azure DevOps API limits.
+   * The /wit/workitems endpoint allows a maximum of 200 IDs per request.
+   */
+  private async fetchWorkItemsByIds(ids: number[], fieldsParam: string): Promise<any> {
+    const BATCH_SIZE = 200;
+    const allWorkItems: any[] = [];
+
+    for (let i = 0; i < ids.length; i += BATCH_SIZE) {
+      const batchIds = ids.slice(i, i + BATCH_SIZE);
+      const batchResult = await this.makeApiRequest(
+        `/wit/workitems?ids=${batchIds.join(',')}${fieldsParam}&api-version=7.1`
+      );
+      if (batchResult.value && batchResult.value.length > 0) {
+        allWorkItems.push(...batchResult.value);
+      }
+    }
+
+    return { count: allWorkItems.length, value: allWorkItems };
+  }
+
+  /**
+   * Strip any inline TOP N clause from a WIQL query and return the cleaned query + extracted limit.
+   *
+   * The WIQL REST API (/wit/wiql) does NOT support "TOP N" inside the query text.
+   * Instead, the limit must be passed as the `$top` URL query parameter.
+   * LLMs and users frequently include TOP in queries (SQL habit), so we strip it
+   * and convert it to the proper URL parameter to avoid TF51006 errors.
+   */
+  private extractWiqlTop(wiql: string, defaultTop: number = 200): { query: string; top: number } {
+    // Match "TOP <number>" anywhere in the query (case-insensitive)
+    const topMatch = wiql.match(/\bTOP\s+(\d+)\b/i);
+    if (topMatch) {
+      const extractedTop = parseInt(topMatch[1], 10);
+      // Remove the TOP clause from the query text
+      const cleanedQuery = wiql.replace(/\bTOP\s+\d+\b/i, '').replace(/\s{2,}/g, ' ').trim();
+      console.error(`[DEBUG] Stripped TOP ${extractedTop} from WIQL query text; will use $top URL parameter instead.`);
+      return { query: cleanedQuery, top: extractedTop };
+    }
+    return { query: wiql, top: defaultTop };
+  }
+
+  /**
+   * Format work items as a summary for large result sets
+   */
+  private formatWorkItemsSummary(workItems: any[]): string {
+    const byState: { [key: string]: any[] } = {};
+    let totalPoints = 0;
+
+    // Group by state
+    for (const item of workItems) {
+      const state = item.fields['System.State'];
+      if (!byState[state]) {
+        byState[state] = [];
+      }
+
+      const assigned = item.fields['System.AssignedTo']?.displayName || 'Unassigned';
+      const points = item.fields['Microsoft.VSTS.Scheduling.StoryPoints'];
+      const workType = item.fields['System.WorkItemType'];
+
+      if (typeof points === 'number') {
+        totalPoints += points;
+      }
+
+      byState[state].push({
+        id: item.id,
+        title: item.fields['System.Title'],
+        type: workType,
+        assigned,
+        points: points || 'N/A'
+      });
+    }
+
+    // Build summary string
+    let summary = '='.repeat(80) + '\n';
+    summary += `Work Items Summary (${workItems.length} items, ${totalPoints} story points)\n`;
+    summary += '='.repeat(80) + '\n\n';
+
+    // Print by state
+    const stateOrder = ['New', 'Active', 'Resolved', 'Closed'];
+    for (const state of stateOrder) {
+      if (byState[state]) {
+        const items = byState[state];
+        const statePoints = items.reduce((sum, item) =>
+          sum + (typeof item.points === 'number' ? item.points : 0), 0
+        );
+
+        summary += `\n${state.toUpperCase()} (${items.length} items, ${statePoints} story points)\n`;
+        summary += '-'.repeat(80) + '\n';
+
+        for (const item of items) {
+          const pointsStr = typeof item.points === 'number' ? `${item.points} pts` : 'N/A';
+          const titleTrunc = item.title.length > 50 ? item.title.substring(0, 47) + '...' : item.title;
+          summary += `  #${item.id.toString().padStart(5)} - ${item.type.padEnd(20)} - ${pointsStr.padEnd(8)} - ${titleTrunc}\n`;
+          summary += `          Assigned: ${item.assigned}\n`;
+        }
+      }
+    }
+
+    return summary;
+  }
+
+  /**
    * Get work items from Azure DevOps
    */
   private async getWorkItems(args: any): Promise<any> {
     try {
       let result;
+
+      // Detect if wiql arg is actually a plain ID or comma-separated IDs (not a real WIQL query).
+      // This prevents errors like TF51006 when a user passes "5" instead of a full WIQL statement.
+      if (args.wiql && /^\s*\d+(\s*,\s*\d+)*\s*$/.test(args.wiql)) {
+        const parsedIds = args.wiql.split(',').map((id: string) => parseInt(id.trim(), 10)).filter((id: number) => !isNaN(id));
+        if (parsedIds.length > 0) {
+          console.error(`[DEBUG] Detected plain ID(s) in wiql argument: [${parsedIds.join(', ')}]. Treating as ID lookup.`);
+          // Merge with any explicit ids to avoid duplication
+          args.ids = [...new Set([...(args.ids || []), ...parsedIds])];
+          delete args.wiql;
+        }
+      }
       
       if (args.wiql) {
-        // Query using WIQL
-        const wiqlResult = await this.makeApiRequest('/wit/wiql?api-version=7.1', 'POST', {
-          query: args.wiql
+        // Strip any inline TOP N from the WIQL text and convert to $top URL param.
+        // The WIQL REST API does NOT support TOP inside the query body — it causes TF51006 errors.
+        // A default $top=200 is applied when no TOP is specified to prevent VS402337 (20,000 limit).
+        const { query: cleanWiql, top } = this.extractWiqlTop(args.wiql);
+
+        const wiqlResult = await this.makeApiRequest(`/wit/wiql?api-version=7.1&$top=${top}`, 'POST', {
+          query: cleanWiql
         });
         
         if (wiqlResult.workItems && wiqlResult.workItems.length > 0) {
@@ -148,36 +353,49 @@ export class ToolHandlers {
           const fields = args.fields ? args.fields.join(',') : undefined;
           const fieldsParam = fields ? `&fields=${encodeURIComponent(fields)}` : '';
           
-          result = await this.makeApiRequest(
-            `/wit/workitems?ids=${ids.join(',')}${fieldsParam}&api-version=7.1`
-          );
+          // Fetch in batches of 200 to prevent VS403474 (page size exceeded)
+          result = await this.fetchWorkItemsByIds(ids, fieldsParam);
         } else {
           result = { value: [] };
         }
       } else if (args.ids && args.ids.length > 0) {
-        // Get specific work items by ID
+        // Get specific work items by ID – batch to respect 200-item limit
         const fields = args.fields ? args.fields.join(',') : undefined;
         const fieldsParam = fields ? `&fields=${encodeURIComponent(fields)}` : '';
         
-        result = await this.makeApiRequest(
-          `/wit/workitems?ids=${args.ids.join(',')}${fieldsParam}&api-version=7.1`
-        );
+        result = await this.fetchWorkItemsByIds(args.ids, fieldsParam);
       } else {
         // Default query for recent work items
-        const defaultWiql = `SELECT [System.Id], [System.Title], [System.State], [System.AssignedTo] FROM WorkItems WHERE [System.TeamProject] = '${this.currentConfig!.project}' ORDER BY [System.ChangedDate] DESC`;
+        // Security: Escape project name to prevent WIQL injection via single quotes
+        // Limit via $top URL parameter (NOT inline TOP — that causes TF51006 errors)
+        const escapedProject = this.escapeWiqlValue(this.currentConfig!.project);
+        const defaultWiql = `SELECT [System.Id], [System.Title], [System.State], [System.AssignedTo] FROM WorkItems WHERE [System.TeamProject] = '${escapedProject}' ORDER BY [System.ChangedDate] DESC`;
         
-        const wiqlResult = await this.makeApiRequest('/wit/wiql?api-version=7.1', 'POST', {
+        const wiqlResult = await this.makeApiRequest('/wit/wiql?api-version=7.1&$top=50', 'POST', {
           query: defaultWiql
         });
         
         if (wiqlResult.workItems && wiqlResult.workItems.length > 0) {
-          const ids = wiqlResult.workItems.slice(0, 20).map((wi: any) => wi.id); // Limit to 20 items
-          result = await this.makeApiRequest(
-            `/wit/workitems?ids=${ids.join(',')}&api-version=7.1`
-          );
+          const ids = wiqlResult.workItems.map((wi: any) => wi.id);
+          result = await this.fetchWorkItemsByIds(ids, '');
         } else {
           result = { value: [] };
         }
+      }
+
+      // Check if we should use summary format
+      // Use summary if: explicitly requested OR result is large (>10 items with full details)
+      const useSummary = args.format === 'summary' ||
+                        (result.value && result.value.length > 10 && !args.fields);
+
+      if (useSummary && result.value && result.value.length > 0) {
+        // Return formatted summary for readability
+        return {
+          content: [{
+            type: 'text',
+            text: this.formatWorkItemsSummary(result.value),
+          }],
+        };
       }
 
       return {
@@ -214,7 +432,7 @@ export class ToolHandlers {
     
     // Case 1: Path starts with project name and has proper Iteration prefix
     if (normalized.startsWith(`${projectName}\\Iteration\\`)) {
-      console.log(`[DEBUG] Path already in correct format with Iteration prefix: ${normalized}`);
+      console.error(`[DEBUG] Path already in correct format with Iteration prefix: ${normalized}`);
       return normalized;
     }
     
@@ -225,7 +443,7 @@ export class ToolHandlers {
       if (pathParts.length >= 2) {
         pathParts.splice(1, 0, 'Iteration');
         normalized = pathParts.join('\\');
-        console.log(`[DEBUG] Added Iteration component to path: ${normalized}`);
+        console.error(`[DEBUG] Added Iteration component to path: ${normalized}`);
         return normalized;
       }
     }
@@ -233,14 +451,14 @@ export class ToolHandlers {
     // Case 3: Has Iteration prefix but missing project name (Iteration\SprintName)
     if (normalized.startsWith('Iteration\\')) {
       normalized = `${projectName}\\${normalized}`;
-      console.log(`[DEBUG] Added project name prefix to Iteration path: ${normalized}`);
+      console.error(`[DEBUG] Added project name prefix to Iteration path: ${normalized}`);
       return normalized;
     }
     
     // Case 4: Just the sprint name (SprintName or Sprint 3)
     if (!normalized.includes('\\')) {
       normalized = `${projectName}\\Iteration\\${normalized}`;
-      console.log(`[DEBUG] Added full project and Iteration prefix to sprint: ${normalized}`);
+      console.error(`[DEBUG] Added full project and Iteration prefix to sprint: ${normalized}`);
       return normalized;
     }
     
@@ -253,10 +471,10 @@ export class ToolHandlers {
         // Add both project name and Iteration component
         normalized = `${projectName}\\Iteration\\${normalized}`;
       }
-      console.log(`[DEBUG] Added project name prefix with Iteration: ${normalized}`);
+      console.error(`[DEBUG] Added project name prefix with Iteration: ${normalized}`);
     }
     
-    console.log(`[DEBUG] Normalized iteration path from '${iterationPath}' to '${normalized}'`);
+    console.error(`[DEBUG] Normalized iteration path from '${iterationPath}' to '${normalized}'`);
     return normalized;
   }
 
@@ -274,7 +492,7 @@ export class ToolHandlers {
         const findInNodes = (node: any, targetPath: string): boolean => {
           // Check current node path
           if (node.path === targetPath) {
-            console.log(`[DEBUG] Found exact path match: ${node.path}`);
+            console.error(`[DEBUG] Found exact path match: ${node.path}`);
             return true;
           }
           
@@ -289,7 +507,7 @@ export class ToolHandlers {
           for (const altPath of alternativePaths) {
             if (altPath === targetPath || 
                 altPath?.replace(/\\/g, '/') === targetPath.replace(/\\/g, '/')) {
-              console.log(`[DEBUG] Found alternative path match: ${altPath} -> ${targetPath}`);
+              console.error(`[DEBUG] Found alternative path match: ${altPath} -> ${targetPath}`);
               return true;
             }
           }
@@ -307,18 +525,18 @@ export class ToolHandlers {
         };
         
         if (classificationNodes && findInNodes(classificationNodes, normalizedPath)) {
-          console.log(`[DEBUG] Iteration path '${normalizedPath}' validated successfully`);
+          console.error(`[DEBUG] Iteration path '${normalizedPath}' validated successfully`);
           return normalizedPath;
         }
         
         // Also try with original path format
         if (normalizedPath !== iterationPath && findInNodes(classificationNodes, iterationPath)) {
-          console.log(`[DEBUG] Original iteration path '${iterationPath}' validated successfully`);
+          console.error(`[DEBUG] Original iteration path '${iterationPath}' validated successfully`);
           return iterationPath;
         }
         
       } catch (classificationError) {
-        console.log(`[DEBUG] Classification nodes query failed: ${classificationError instanceof Error ? classificationError.message : 'Unknown error'}`);
+        console.error(`[DEBUG] Classification nodes query failed: ${classificationError instanceof Error ? classificationError.message : 'Unknown error'}`);
       }
       
       // Approach 2: Get team iterations (fallback)
@@ -342,17 +560,17 @@ export class ToolHandlers {
         });
         
         if (pathExists) {
-          console.log(`[DEBUG] Iteration path validated via team iterations`);
+          console.error(`[DEBUG] Iteration path validated via team iterations`);
           return normalizedPath;
         }
       } catch (teamError) {
-        console.log(`[DEBUG] Team iterations query failed: ${teamError instanceof Error ? teamError.message : 'Unknown error'}`);
+        console.error(`[DEBUG] Team iterations query failed: ${teamError instanceof Error ? teamError.message : 'Unknown error'}`);
       }
       
       // If both validation attempts failed to find the path, it doesn't exist
-      console.log(`[DEBUG] Could not validate iteration path '${iterationPath}', normalized format '${normalizedPath}' does not exist`);
-      console.log(`[DEBUG] SUGGESTION: Ensure the iteration '${normalizedPath}' exists in Azure DevOps project settings`);
-      console.log(`[DEBUG] Expected format: ProjectName\\SprintName (e.g., '${this.currentConfig!.project}\\Sprint 1')`);
+      console.error(`[DEBUG] Could not validate iteration path '${iterationPath}', normalized format '${normalizedPath}' does not exist`);
+      console.error(`[DEBUG] SUGGESTION: Ensure the iteration '${normalizedPath}' exists in Azure DevOps project settings`);
+      console.error(`[DEBUG] Expected format: ProjectName\\SprintName (e.g., '${this.currentConfig!.project}\\Sprint 1')`);
       throw new Error(`Iteration path '${iterationPath}' does not exist in project '${this.currentConfig!.project}'`);
       
     } catch (error) {
@@ -364,8 +582,8 @@ export class ToolHandlers {
       
       // For other errors (network, auth, etc.), return normalized path with warning
       const normalizedPath = this.normalizeIterationPath(iterationPath);
-      console.log(`[DEBUG] Validation error for path '${iterationPath}': ${error instanceof Error ? error.message : 'Unknown error'}`);
-      console.log(`[DEBUG] Using normalized path due to validation service unavailability`);
+      console.error(`[DEBUG] Validation error for path '${iterationPath}': ${error instanceof Error ? error.message : 'Unknown error'}`);
+      console.error(`[DEBUG] Using normalized path due to validation service unavailability`);
       return normalizedPath;
     }
   }
@@ -402,7 +620,7 @@ export class ToolHandlers {
       const validStates = typeDefinition.states?.map((s: any) => s.name) || [];
       
       if (validStates.length > 0 && !validStates.includes(state)) {
-        console.log(`[DEBUG] Invalid state '${state}' for work item type '${workItemType}'. Valid states: [${validStates.join(', ')}]`);
+        console.error(`[DEBUG] Invalid state '${state}' for work item type '${workItemType}'. Valid states: [${validStates.join(', ')}]`);
         
         // Common state mappings for fallback
         const stateMappings: { [key: string]: { [key: string]: string } } = {
@@ -421,16 +639,16 @@ export class ToolHandlers {
         };
 
         const fallbackState = stateMappings[workItemType]?.[state] || validStates[0] || 'Active';
-        console.log(`[DEBUG] Using fallback state '${fallbackState}' instead of '${state}' for work item type '${workItemType}'`);
+        console.error(`[DEBUG] Using fallback state '${fallbackState}' instead of '${state}' for work item type '${workItemType}'`);
         return fallbackState;
       }
 
-      console.log(`[DEBUG] State '${state}' is valid for work item type '${workItemType}'`);
+      console.error(`[DEBUG] State '${state}' is valid for work item type '${workItemType}'`);
       return state;
     } catch (error) {
       // If validation fails, return the original state and let Azure DevOps handle it
-      console.log(`[DEBUG] Could not validate state '${state}' for work item type '${workItemType}': ${error instanceof Error ? error.message : 'Unknown error'}`);
-      console.log(`[DEBUG] Proceeding with original state - Azure DevOps will validate`);
+      console.error(`[DEBUG] Could not validate state '${state}' for work item type '${workItemType}': ${error instanceof Error ? error.message : 'Unknown error'}`);
+      console.error(`[DEBUG] Proceeding with original state - Azure DevOps will validate`);
       return state;
     }
   }
@@ -485,7 +703,7 @@ export class ToolHandlers {
         }
         
         const parentUrl = `${this.currentConfig!.organizationUrl}/${this.currentConfig!.project}/_apis/wit/workItems/${parentId}`;
-        console.log(`[DEBUG] Setting parent relationship to work item ${parentId} using URL: ${parentUrl}`);
+        console.error(`[DEBUG] Setting parent relationship to work item ${parentId} using URL: ${parentUrl}`);
         
         operations.push({
           op: 'add',
@@ -517,12 +735,12 @@ export class ToolHandlers {
             value: finalIterationPath
           });
           iterationPathHandled = true;
-          console.log(`[DEBUG] Iteration path normalized to '${finalIterationPath}' and will be set during creation`);
+          console.error(`[DEBUG] Iteration path normalized to '${finalIterationPath}' and will be set during creation`);
         } catch (validationError) {
           iterationPathError = validationError;
           finalIterationPath = this.normalizeIterationPath(args.iterationPath);
-          console.log(`[DEBUG] Iteration path validation failed: ${validationError instanceof Error ? validationError.message : 'Unknown error'}`);
-          console.log(`[DEBUG] Will attempt to set normalized path '${finalIterationPath}' after work item creation`);
+          console.error(`[DEBUG] Iteration path validation failed: ${validationError instanceof Error ? validationError.message : 'Unknown error'}`);
+          console.error(`[DEBUG] Will attempt to set normalized path '${finalIterationPath}' after work item creation`);
         }
       }
 
@@ -561,7 +779,7 @@ export class ToolHandlers {
           }
           // System.* and Microsoft.* fields are preserved exactly as-is
 
-          console.log(`[DEBUG] Field resolution: "${fieldName}" → "${normalizedFieldName}"`);
+          console.error(`[DEBUG] Field resolution: "${fieldName}" → "${normalizedFieldName}"`);
           
           operations.push({
             op: 'add',
@@ -573,8 +791,8 @@ export class ToolHandlers {
 
       // Debug logging to validate the endpoint construction
       const endpoint = `/wit/workitems/$${args.type}?api-version=7.1`;
-      console.log(`[DEBUG] Creating work item with endpoint: ${endpoint}`);
-      console.log(`[DEBUG] Full URL will be: ${this.currentConfig!.organizationUrl}/${this.currentConfig!.project}/_apis${endpoint}`);
+      console.error(`[DEBUG] Creating work item with endpoint: ${endpoint}`);
+      console.error(`[DEBUG] Full URL will be: ${this.currentConfig!.organizationUrl}/${this.currentConfig!.project}/_apis${endpoint}`);
       
       // Create the work item
       const result = await this.makeApiRequest(
@@ -586,14 +804,14 @@ export class ToolHandlers {
       // Handle iteration path post-creation if it wasn't set during creation
       if (args.iterationPath && !iterationPathHandled && finalIterationPath) {
         try {
-          console.log(`[DEBUG] Attempting to set normalized iteration path '${finalIterationPath}' post-creation for work item ${result.id}`);
+          console.error(`[DEBUG] Attempting to set normalized iteration path '${finalIterationPath}' post-creation for work item ${result.id}`);
           await this.updateWorkItemIterationPath(result.id, finalIterationPath);
           
           // Refresh the work item to get updated fields
           const updatedResult = await this.makeApiRequest(`/wit/workitems/${result.id}?api-version=7.1`);
           Object.assign(result, updatedResult);
           
-          console.log(`[DEBUG] Successfully set iteration path post-creation`);
+          console.error(`[DEBUG] Successfully set iteration path post-creation`);
         } catch (postCreationError) {
           console.error(`[WARNING] Failed to set iteration path post-creation: ${postCreationError instanceof Error ? postCreationError.message : 'Unknown error'}`);
           // Don't fail the entire operation, just log the warning
@@ -699,7 +917,7 @@ export class ToolHandlers {
           const currentWorkItem = await this.makeApiRequest(`/wit/workitems/${args.id}?api-version=7.1`);
           workItemType = currentWorkItem.fields['System.WorkItemType'] || 'Task';
         } catch (error) {
-          console.log(`[DEBUG] Could not fetch work item type for validation, using default: ${error instanceof Error ? error.message : 'Unknown error'}`);
+          console.error(`[DEBUG] Could not fetch work item type for validation, using default: ${error instanceof Error ? error.message : 'Unknown error'}`);
         }
         
         // Validate state for work item type to prevent invalid state errors
@@ -736,7 +954,7 @@ export class ToolHandlers {
         }
         
         const parentUrl = `${this.currentConfig!.organizationUrl}/${this.currentConfig!.project}/_apis/wit/workItems/${parentId}`;
-        console.log(`[DEBUG] Setting parent relationship to work item ${parentId} using URL: ${parentUrl}`);
+        console.error(`[DEBUG] Setting parent relationship to work item ${parentId} using URL: ${parentUrl}`);
         
         operations.push({
           op: 'add',
@@ -759,7 +977,7 @@ export class ToolHandlers {
           path: '/fields/System.IterationPath',
           value: normalizedIterationPath
         });
-        console.log(`[DEBUG] Iteration path normalized from '${args.iterationPath}' to '${normalizedIterationPath}' for update`);
+        console.error(`[DEBUG] Iteration path normalized from '${args.iterationPath}' to '${normalizedIterationPath}' for update`);
       }
 
       // Handle generic field updates with intelligent field name resolution
@@ -786,7 +1004,7 @@ export class ToolHandlers {
           }
           // System.* and Microsoft.* fields are preserved exactly as-is
 
-          console.log(`[DEBUG] Field resolution: "${fieldName}" → "${normalizedFieldName}"`);
+          console.error(`[DEBUG] Field resolution: "${fieldName}" → "${normalizedFieldName}"`);
           
           operations.push({
             op: 'replace',
@@ -802,8 +1020,8 @@ export class ToolHandlers {
 
       // Debug logging to validate the endpoint construction
       const endpoint = `/wit/workitems/${args.id}?api-version=7.1`;
-      console.log(`[DEBUG] Updating work item ${args.id} with endpoint: ${endpoint}`);
-      console.log(`[DEBUG] Operations:`, JSON.stringify(operations, null, 2));
+      console.error(`[DEBUG] Updating work item ${args.id} with endpoint: ${endpoint}`);
+      console.error(`[DEBUG] Operations:`, JSON.stringify(operations, null, 2));
       
       const result = await this.makeApiRequest(
         endpoint,
@@ -875,7 +1093,7 @@ export class ToolHandlers {
 
       // Use API version 6.0-preview.4 for comments - required for work item comments endpoint
       const endpoint = `/wit/workitems/${args.id}/comments?api-version=6.0-preview.4`;
-      console.log(`[DEBUG] Adding comment to work item ${args.id} with endpoint: ${endpoint}`);
+      console.error(`[DEBUG] Adding comment to work item ${args.id} with endpoint: ${endpoint}`);
       
       const result = await this.makeApiRequest(
         endpoint,

@@ -43,7 +43,7 @@ export class LocalConfigLoader {
 
     try {
       if (!fs.existsSync(configPath)) {
-        console.log(`No local Azure DevOps config found in ${workingDir}`);
+        console.error(`No local Azure DevOps config found in ${workingDir}`);
         return null;
       }
 
@@ -54,6 +54,11 @@ export class LocalConfigLoader {
       if (!localConfig.organizationUrl || !localConfig.project || !localConfig.pat) {
         throw new Error('Missing required fields: organizationUrl, project, or pat');
       }
+
+      // Security: Validate that the organization URL uses HTTPS and points to a
+      // recognized Azure DevOps domain before we load the PAT into memory with it.
+      // This prevents PAT exfiltration via a tampered .azure-devops.json file.
+      this.validateOrganizationUrl(localConfig.organizationUrl);
 
       // Convert to internal config format
       const config: AzureDevOpsConfig = {
@@ -85,6 +90,43 @@ export class LocalConfigLoader {
   }
 
   /**
+   * Load configuration from an explicit file path (for --config flag)
+   */
+  static loadFromPath(configPath: string): AzureDevOpsConfig | null {
+    try {
+      const resolvedPath = path.resolve(configPath);
+      if (!fs.existsSync(resolvedPath)) {
+        console.error(`Config file not found: ${resolvedPath}`);
+        return null;
+      }
+
+      const configData = fs.readFileSync(resolvedPath, 'utf8');
+      const localConfig = JSON.parse(configData) as LocalAzureDevOpsConfig;
+
+      if (!localConfig.organizationUrl || !localConfig.project || !localConfig.pat) {
+        throw new Error('Missing required fields: organizationUrl, project, or pat');
+      }
+
+      this.validateOrganizationUrl(localConfig.organizationUrl);
+
+      const config: AzureDevOpsConfig = {
+        organizationUrl: localConfig.organizationUrl,
+        project: localConfig.project,
+        pat: localConfig.pat
+      };
+
+      if (process.env.DEBUG === 'true') {
+        console.debug(`Loaded Azure DevOps config from explicit path: ${resolvedPath}`);
+      }
+
+      return config;
+    } catch (error) {
+      console.error(`Failed to load config from ${configPath}:`, error);
+      return null;
+    }
+  }
+
+  /**
    * Search for configuration file in current directory and parent directories
    */
   static findLocalConfig(startDirectory?: string): AzureDevOpsConfig | null {
@@ -105,7 +147,7 @@ export class LocalConfigLoader {
       currentDir = parentDir;
     }
 
-    console.log('No Azure DevOps configuration found in current directory tree');
+    console.error('No Azure DevOps configuration found in current directory tree');
     return null;
   }
 
@@ -119,11 +161,41 @@ export class LocalConfigLoader {
   /**
    * Check if hostname is a valid Azure DevOps domain
    */
-  private static isValidAzureDevOpsHostname(hostname: string): boolean {
+  static isValidAzureDevOpsHostname(hostname: string): boolean {
     // Support dev.azure.com, visualstudio.com, and custom domains
     return hostname === 'dev.azure.com' || 
            hostname.endsWith('.visualstudio.com') ||
            hostname.endsWith('.dev.azure.com');
+  }
+
+  /**
+   * Validate that an organization URL uses HTTPS and points to a recognized Azure DevOps domain.
+   * Prevents PAT tokens from being sent to arbitrary or malicious servers.
+   */
+  static validateOrganizationUrl(organizationUrl: string): void {
+    let parsed: URL;
+    try {
+      parsed = new URL(organizationUrl);
+    } catch {
+      throw new Error(`Invalid organization URL format: '${organizationUrl}' is not a valid URL`);
+    }
+
+    // Enforce HTTPS - PAT tokens must never be sent over plaintext HTTP
+    if (parsed.protocol !== 'https:') {
+      throw new Error(
+        `Security error: organizationUrl must use HTTPS (got '${parsed.protocol}'). ` +
+        `PAT tokens must not be transmitted over unencrypted connections.`
+      );
+    }
+
+    // Enforce recognized Azure DevOps hostnames to prevent PAT exfiltration
+    if (!this.isValidAzureDevOpsHostname(parsed.hostname)) {
+      throw new Error(
+        `Security error: organizationUrl hostname '${parsed.hostname}' is not a recognized Azure DevOps domain. ` +
+        `Expected: dev.azure.com, *.visualstudio.com, or *.dev.azure.com. ` +
+        `PAT tokens will not be sent to unrecognized hosts.`
+      );
+    }
   }
 
   /**
@@ -187,7 +259,7 @@ export class LocalConfigLoader {
 
     try {
       fs.writeFileSync(configPath, JSON.stringify(exampleConfig, null, 2));
-      console.log(`Created example configuration at ${configPath}`);
+      console.error(`Created example configuration at ${configPath}`);
     } catch (error) {
       console.error(`Failed to create example configuration:`, error);
     }

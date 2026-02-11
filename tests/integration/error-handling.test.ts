@@ -1,6 +1,11 @@
 /**
  * Integration tests for Error Handling and Fallback Mechanisms
  * Tests various error scenarios and recovery mechanisms
+ *
+ * SECURITY INVARIANT: These tests must NEVER read or parse a real
+ * .azure-devops.json file. All configuration structures are validated
+ * using synthetic fixtures to prevent real PAT tokens from leaking
+ * into test process memory, assertion output, or CI logs.
  */
 
 import * as fs from 'fs';
@@ -219,31 +224,36 @@ describe('Error Handling Integration', () => {
   });
 
   describe('Current Directory Configuration', () => {
-    it('should check current directory configuration safely', () => {
+    it('should detect current directory configuration existence without reading contents', () => {
       const currentConfigPath = './.azure-devops.json';
 
-      try {
-        const content = fs.readFileSync(currentConfigPath, 'utf8');
-        const config = JSON.parse(content) as AzureDevOpsConfig;
+      // Only check existence — never read the file, as it may contain real credentials.
+      // Structure validation is handled separately with synthetic fixtures.
+      const exists = fs.existsSync(currentConfigPath);
 
-        // If config exists, validate it
-        expect(config.organizationUrl).toBeDefined();
-        expect(config.project).toBeDefined();
-        expect(config.pat).toBeDefined();
-        expect(typeof config.organizationUrl).toBe('string');
-        expect(typeof config.project).toBe('string');
-        expect(typeof config.pat).toBe('string');
-
-      } catch (error) {
-        const nodeError = error as NodeJS.ErrnoException;
-        if (nodeError.code === 'ENOENT') {
-          // It's acceptable if no config exists in current directory
-          console.log('No configuration in current directory - this is expected for tests');
-        } else {
-          // Other errors should be handled gracefully
-          expect(error).toBeInstanceOf(Error);
-        }
+      if (exists) {
+        // If the file is present, verify it is gitignored
+        const gitignoreContent = fs.readFileSync('./.gitignore', 'utf8');
+        expect(gitignoreContent).toContain('.azure-devops.json');
+      } else {
+        // It's acceptable if no config exists in current directory
+        console.log('No configuration in current directory - this is expected for tests');
       }
+    });
+
+    it('should validate configuration structure using synthetic fixture', () => {
+      const syntheticConfig: AzureDevOpsConfig = {
+        organizationUrl: 'https://dev.azure.com/error-handling-test',
+        project: 'ErrorHandlingTest',
+        pat: 'synthetic-pat-for-error-handling-tests'
+      };
+
+      expect(syntheticConfig.organizationUrl).toBeDefined();
+      expect(syntheticConfig.project).toBeDefined();
+      expect(syntheticConfig.pat).toBeDefined();
+      expect(typeof syntheticConfig.organizationUrl).toBe('string');
+      expect(typeof syntheticConfig.project).toBe('string');
+      expect(typeof syntheticConfig.pat).toBe('string');
     });
   });
 

@@ -86,7 +86,7 @@ Tests use predefined configurations for consistent results:
 ```javascript
 const testMappings = [
   {
-    directory: '/Users/wangkanai/Sources/riversync',
+    directory: '/Users/testuser/Projects/riversync',
     config: {
       organizationUrl: 'https://dev.azure.com/riversync',
       pat: 'test-pat-1',
@@ -94,7 +94,7 @@ const testMappings = [
     }
   },
   {
-    directory: '/Users/wangkanai/Sources/mula',
+    directory: '/Users/testuser/Projects/mula',
     config: {
       organizationUrl: 'https://dev.azure.com/mula-x', 
       pat: 'test-pat-2',

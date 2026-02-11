@@ -50,7 +50,7 @@ Project configurations now use environment variables for security:
 {
   "mappings": [
     {
-      "directory": "/Users/wangkanai/Sources/riversync",
+      "directory": "/Users/you/Projects/riversync",
       "config": {
         "organizationUrl": "https://dev.azure.com/riversync",
         "pat": "${RIVERSYNC_PAT}",
@@ -58,7 +58,7 @@ Project configurations now use environment variables for security:
       }
     },
     {
-      "directory": "/Users/wangkanai/Sources/mula",
+      "directory": "/Users/you/Projects/mula",
       "config": {
         "organizationUrl": "https://dev.azure.com/mula-x",
         "pat": "${MULA_PAT}",
@@ -95,7 +95,7 @@ MCP server configuration for `claude_desktop_config.json`:
 {
   "azure-devops-proxy": {
     "command": "node",
-    "args": ["/Users/wangkanai/Sources/devops-mcp/dist/index.js"],
+    "args": ["/Users/you/Projects/devops-mcp/dist/index.js"],
     "env": {
       "RIVERSYNC_PAT": "your_riversync_pat_token",
       "MULA_PAT": "your_mula_pat_token"
@@ -171,11 +171,11 @@ DEFAULT_PAT=your_default_pat_token_here
 
 ```bash
 # Switch to RiverSync context
-cd /Users/wangkanai/Sources/riversync
+cd /Users/you/Projects/riversync
 # MCP tools now use RiverSync Azure DevOps organization
 
 # Switch to Mula context  
-cd /Users/wangkanai/Sources/mula
+cd /Users/you/Projects/mula
 # MCP tools now use Mula Azure DevOps organization
 ```
 
@@ -206,7 +206,7 @@ cd /Users/wangkanai/Sources/mula
 
 ## 📋 Repository Status
 
-- **GitHub Repository**: <https://github.com/wangkanai/devops-mcp>
+- **GitHub Repository**: <https://github.com/sirforce/devops-mcp>
 - **Status**: Production Ready & Operational
 - **Security**: GitHub secret scanning compliant
 - **Documentation**: Complete with setup guides and examples

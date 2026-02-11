@@ -71,7 +71,7 @@ jobs:
       id: version-check
       run: |
         CURRENT_VERSION=$(node -p "require('./package.json').version")
-        PUBLISHED_VERSION=$(npm view @wangkanai/devops-mcp version 2>/dev/null || echo "0.0.0")
+        PUBLISHED_VERSION=$(npm view @sirforce/devops-mcp version 2>/dev/null || echo "0.0.0")
         echo "current-version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
         echo "published-version=$PUBLISHED_VERSION" >> $GITHUB_OUTPUT
         if [ "$CURRENT_VERSION" != "$PUBLISHED_VERSION" ]; then

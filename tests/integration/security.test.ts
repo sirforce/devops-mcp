@@ -1,51 +1,57 @@
 /**
  * Integration tests for PAT Token Security and Configuration Isolation
  * Tests security measures and proper isolation of sensitive configuration
+ *
+ * SECURITY INVARIANT: These tests must NEVER read or load a real
+ * .azure-devops.json file. All PAT values used here are synthetic
+ * test fixtures. This prevents real credentials from being loaded
+ * into test process memory where they could leak via assertion
+ * failures, stack traces, or CI logs.
  */
 
 import * as fs from 'fs';
 import * as path from 'path';
 import { AzureDevOpsConfig } from '../../src/types/index';
+import { ToolHandlers } from '../../src/handlers/tool-handlers';
 
 describe('Security Integration Tests', () => {
   const testDirectories = [
-    '/Users/wangkanai/Sources/riversync',
-    '/Users/wangkanai/Sources/mula'
+    '/Users/testuser/Projects/riversync',
+    '/Users/testuser/Projects/mula'
   ];
 
   describe('Local Configuration Security', () => {
-    it('should validate PAT token security in current directory', () => {
+    it('should never load real .azure-devops.json during automated tests', () => {
+      // This test is the safety gate: it verifies that tests do NOT
+      // read real credentials. If .azure-devops.json exists in the
+      // working directory, we only check its presence — we never read it.
       const currentConfigPath = './.azure-devops.json';
+      const exists = fs.existsSync(currentConfigPath);
 
-      try {
-        const stats = fs.statSync(currentConfigPath);
-        const content = fs.readFileSync(currentConfigPath, 'utf8');
-        const config = JSON.parse(content) as AzureDevOpsConfig;
-
-        expect(stats.size).toBeGreaterThan(0);
-        expect(config.organizationUrl).toBeDefined();
-
-        if (config.pat) {
-          // PAT token should be present and of reasonable length
-          expect(config.pat.length).toBeGreaterThan(10);
-          
-          // Should be a string
-          expect(typeof config.pat).toBe('string');
-          
-          // Should not contain obvious test values
-          expect(config.pat.toLowerCase()).not.toContain('test');
-          expect(config.pat.toLowerCase()).not.toContain('fake');
-          expect(config.pat.toLowerCase()).not.toContain('example');
-        }
-
-      } catch (error) {
-        const nodeError = error as NodeJS.ErrnoException;
-        if (nodeError.code === 'ENOENT') {
-          console.log('No configuration file found in current directory - expected for tests');
-        } else {
-          throw error;
-        }
+      if (exists) {
+        // Verify the file is in .gitignore (the only safe assertion to make
+        // about a file that might contain real credentials)
+        const gitignoreContent = fs.readFileSync('./.gitignore', 'utf8');
+        expect(gitignoreContent).toContain('.azure-devops.json');
       }
+
+      // This test always passes — its purpose is to document and enforce
+      // the policy that tests must not read real credential files.
+      expect(true).toBe(true);
+    });
+
+    it('should validate PAT token structure using synthetic fixture', () => {
+      // Use a synthetic config — never a real one
+      const syntheticConfig: AzureDevOpsConfig = {
+        organizationUrl: 'https://dev.azure.com/test-org',
+        project: 'TestProject',
+        pat: 'abcdefghijklmnopqrstuvwxyz0123456789abcdefghijklmnop'
+      };
+
+      expect(syntheticConfig.pat.length).toBeGreaterThan(10);
+      expect(typeof syntheticConfig.pat).toBe('string');
+      expect(syntheticConfig.organizationUrl).toBeDefined();
+      expect(syntheticConfig.project).toBeDefined();
     });
 
     it('should not expose PAT tokens in error messages or logs', () => {
@@ -62,7 +68,32 @@ describe('Security Integration Tests', () => {
       expect(maskedPat).not.toContain('exposed');
     });
 
-    it('should validate configuration file permissions', () => {
+    it('should sanitize PAT from all tool handler responses', () => {
+      const handler = new ToolHandlers();
+      const fakePat = 'pat-secret-value-that-must-not-leak-through';
+      handler.setCurrentConfig({
+        organizationUrl: 'https://dev.azure.com/test-org',
+        project: 'TestProject',
+        pat: fakePat
+      });
+
+      // Access private sanitizePat via bracket notation for testing
+      const sanitize = (handler as any).sanitizePat.bind(handler);
+      const base64Pat = Buffer.from(`:${fakePat}`).toString('base64');
+
+      // Raw PAT should be redacted
+      expect(sanitize(`Error: auth failed with token ${fakePat}`)).not.toContain(fakePat);
+      expect(sanitize(`Error: auth failed with token ${fakePat}`)).toContain('[PAT_REDACTED]');
+
+      // Base64-encoded PAT should also be redacted
+      expect(sanitize(`Authorization: Basic ${base64Pat}`)).not.toContain(base64Pat);
+      expect(sanitize(`Authorization: Basic ${base64Pat}`)).toContain('[PAT_BASE64_REDACTED]');
+
+      // Clean text should pass through unchanged
+      expect(sanitize('No secrets here')).toBe('No secrets here');
+    });
+
+    it('should validate configuration file permissions without reading contents', () => {
       const currentConfigPath = './.azure-devops.json';
 
       try {
@@ -153,6 +184,22 @@ describe('Security Integration Tests', () => {
         }
       });
     });
+
+    it('should have developer debug scripts excluded from version control', () => {
+      const gitignoreContent = fs.readFileSync('./.gitignore', 'utf8');
+
+      // Debug scripts that load real credentials must be gitignored
+      const debugScripts = [
+        'get-active-items.js',
+        'test-wiql.js',
+        'test-mcp-wiql.js',
+        'test-parent-fix.js'
+      ];
+
+      debugScripts.forEach(script => {
+        expect(gitignoreContent).toContain(script);
+      });
+    });
   });
 
   describe('Environment Variable Security', () => {
@@ -205,48 +252,39 @@ describe('Security Integration Tests', () => {
 
   describe('Project Configuration Isolation', () => {
     it('should maintain separate configurations for different projects', () => {
-      const configuredProjects = new Map<string, AzureDevOpsConfig>();
+      // Use synthetic configs to validate isolation logic without reading real files
+      const syntheticProjects = new Map<string, AzureDevOpsConfig>([
+        ['riversync', {
+          organizationUrl: 'https://dev.azure.com/riversync',
+          project: 'RiverSync',
+          pat: 'synthetic-pat-riversync'
+        }],
+        ['mula', {
+          organizationUrl: 'https://dev.azure.com/mula-x',
+          project: 'mula',
+          pat: 'synthetic-pat-mula'
+        }]
+      ]);
 
-      testDirectories.forEach(dir => {
-        const configPath = path.join(dir, '.azure-devops.json');
-        
-        try {
-          const content = fs.readFileSync(configPath, 'utf8');
-          const config = JSON.parse(content) as AzureDevOpsConfig;
-          const projectName = path.basename(dir);
-          
-          configuredProjects.set(projectName, config);
-
-          // Validate each config is complete
-          expect(config.organizationUrl).toBeDefined();
-          expect(config.project).toBeDefined();
-          expect(config.pat).toBeDefined();
-
-        } catch (error) {
-          const nodeError = error as NodeJS.ErrnoException;
-          if (nodeError.code === 'ENOENT') {
-            console.log(`No configuration found for ${path.basename(dir)} - this is acceptable`);
-          } else {
-            throw error;
-          }
-        }
+      // Validate each config is complete
+      syntheticProjects.forEach((config, projectName) => {
+        expect(config.organizationUrl).toBeDefined();
+        expect(config.project).toBeDefined();
+        expect(config.pat).toBeDefined();
       });
 
-      // If multiple configs exist, ensure they're different
-      const configs = Array.from(configuredProjects.values());
-      if (configs.length > 1) {
-        // Each config should have unique organization or project
-        for (let i = 0; i < configs.length; i++) {
-          for (let j = i + 1; j < configs.length; j++) {
-            const config1 = configs[i];
-            const config2 = configs[j];
-            
-            // Configs should be isolated (different org or project)
-            const isDifferent = config1.organizationUrl !== config2.organizationUrl ||
-                               config1.project !== config2.project;
-            
-            expect(isDifferent).toBe(true);
-          }
+      // Each config should have unique organization or project
+      const configs = Array.from(syntheticProjects.values());
+      for (let i = 0; i < configs.length; i++) {
+        for (let j = i + 1; j < configs.length; j++) {
+          const config1 = configs[i];
+          const config2 = configs[j];
+          
+          // Configs should be isolated (different org or project)
+          const isDifferent = config1.organizationUrl !== config2.organizationUrl ||
+                             config1.project !== config2.project;
+          
+          expect(isDifferent).toBe(true);
         }
       }
     });

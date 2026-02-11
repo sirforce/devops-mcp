@@ -2,7 +2,7 @@
 
 > **Comprehensive guide for Claude users to effectively utilize all Azure DevOps MCP commands with in-depth details, examples, and best practices**
 
-Complete reference for all MCP (Model Context Protocol) commands available in the `@wangkanai/devops-mcp` server with detailed parameters, response formats, real-world examples, and advanced usage patterns.
+Complete reference for all MCP (Model Context Protocol) commands available in the `@sirforce/devops-mcp` server with detailed parameters, response formats, real-world examples, and advanced usage patterns.
 
 ---
 
@@ -30,7 +30,7 @@ Complete reference for all MCP (Model Context Protocol) commands available in th
 #### Claude Code (Recommended)
 ```bash
 # Install and add to Claude Code MCP
-claude mcp add devops-mcp -- -y @wangkanai/devops-mcp
+claude mcp add devops-mcp -- -y @sirforce/devops-mcp
 ```
 
 #### Claude Desktop
@@ -41,7 +41,7 @@ Add to your MCP settings file:
   "mcpServers": {
     "devops-mcp": {
       "command": "npx",
-      "args": ["-y", "@wangkanai/devops-mcp"]
+      "args": ["-y", "@sirforce/devops-mcp"]
     }
   }
 }
@@ -1788,9 +1788,9 @@ mcp__devops-mcp__get-work-items \
 - **PAT Tokens**: [Security Guide](https://docs.microsoft.com/en-us/azure/devops/organizations/accounts/use-personal-access-tokens-to-authenticate)
 
 ### **MCP Server Resources**
-- **GitHub Repository**: [wangkanai/devops-mcp](https://github.com/wangkanai/devops-mcp)
-- **NPM Package**: [@wangkanai/devops-mcp](https://www.npmjs.com/package/@wangkanai/devops-mcp)
-- **Issue Tracking**: [GitHub Issues](https://github.com/wangkanai/devops-mcp/issues)
+- **GitHub Repository**: [sirforce/devops-mcp](https://github.com/sirforce/devops-mcp)
+- **NPM Package**: [@sirforce/devops-mcp](https://www.npmjs.com/package/@sirforce/devops-mcp)
+- **Issue Tracking**: [GitHub Issues](https://github.com/sirforce/devops-mcp/issues)
 
 ### **Related Documentation**
 - **Claude MCP Usage**: `CLAUDE-MCP-USAGE.md` - Practical workflows and examples
@@ -1815,8 +1815,8 @@ mcp__devops-mcp__get-work-items \
 **Version**: 2.0  
 **Last Updated**: 2025-07-27  
 **API Compatibility**: Azure DevOps REST API v7.1+  
-**GitHub**: [wangkanai/devops-mcp](https://github.com/wangkanai/devops-mcp)  
-**NPM**: [@wangkanai/devops-mcp](https://www.npmjs.com/package/@wangkanai/devops-mcp)
+**GitHub**: [sirforce/devops-mcp](https://github.com/sirforce/devops-mcp)  
+**NPM**: [@sirforce/devops-mcp](https://www.npmjs.com/package/@sirforce/devops-mcp)
 
 ---
 

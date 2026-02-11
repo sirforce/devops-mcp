@@ -6,9 +6,9 @@ The Claude MCP connection failure has been **successfully resolved**. The issue 
 
 ## 🔍 Root Cause Analysis
 
-1. **NPM Package Mapping**: NPM automatically converts the scoped package `@wangkanai/devops-mcp` to binary name `devops-mcp`
-2. **Command Execution**: `npx @wangkanai/devops-mcp` fails because it tries to execute `devops-mcp` command which doesn't exist in that context
-3. **Correct Mapping**: The published package maps `@wangkanai/devops-mcp` package → `devops-mcp` binary name
+1. **NPM Package Mapping**: NPM automatically converts the scoped package `@sirforce/devops-mcp` to binary name `devops-mcp`
+2. **Command Execution**: `npx @sirforce/devops-mcp` fails because it tries to execute `devops-mcp` command which doesn't exist in that context
+3. **Correct Mapping**: The published package maps `@sirforce/devops-mcp` package → `devops-mcp` binary name
 
 ## ✅ Working Solution
 
@@ -52,7 +52,7 @@ mcp__devops-mcp__get-current-context
 ## 🔧 Technical Details
 
 ### NPM Package Structure
-- **Package Name**: `@wangkanai/devops-mcp`
+- **Package Name**: `@sirforce/devops-mcp`
 - **Published Version**: 1.0.0 (confirmed working)
 - **Binary Mapping**: NPM automatically creates `devops-mcp` binary from scoped package
 - **Execution**: `devops-mcp (after global installation)` works correctly
@@ -60,7 +60,7 @@ mcp__devops-mcp__get-current-context
 ### Package.json Configuration
 ```json
 {
-  "name": "@wangkanai/devops-mcp",
+  "name": "@sirforce/devops-mcp",
   "bin": "dist/index.js"
 }
 ```
@@ -86,7 +86,7 @@ All documentation has been updated to reflect the correct working command:
 ## 🎉 Final Status
 
 - ✅ **Root cause identified**: NPX command mapping issue
-- ✅ **Solution implemented**: Use `devops-mcp (after global installation)` instead of `npx @wangkanai/devops-mcp`
+- ✅ **Solution implemented**: Use `devops-mcp (after global installation)` instead of `npx @sirforce/devops-mcp`
 - ✅ **Testing completed**: Verified working with integration tests
 - ✅ **Documentation updated**: All guides reflect correct commands
 - ✅ **Ready for use**: Claude MCP integration fully functional
@@ -95,7 +95,7 @@ All documentation has been updated to reflect the correct working command:
 
 When using scoped NPM packages with Claude MCP, use the **binary name** rather than the full scoped package name:
 
-- ❌ `claude mcp add devops-mcp -- npx @wangkanai/devops-mcp` (fails)
+- ❌ `claude mcp add devops-mcp -- npx @sirforce/devops-mcp` (fails)
 - ✅ `claude mcp add devops-mcp -- devops-mcp` (works after global install)
 
 ---

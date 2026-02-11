@@ -6,20 +6,67 @@ Issue tracking and resolution documentation for the DevOps MCP project.
 
 ## 📊 Issue Status Overview
 
-**Total Issues Tracked**: 11
-**Resolved Issues**: 11 ✅
+**Total Issues Tracked**: 12
+**Resolved Issues**: 12 ✅
 **Pending Issues**: 0 🟢
-**Project Status**: 🗄️ **ARCHIVED (COMPLETED)**
+**Project Status**: 🚀 **ACTIVE (PRODUCTION)**
 
 ---
 
 ## ✅ RESOLVED ISSUES
 
+### **WIQL Query Failure** - TF51006 Error Fixed ✅ **RESOLVED**
+
+**Status**: ✅ **RESOLVED**
+**Version**: 1.5.14+
+**Date Resolved**: 2026-02-11
+**Documentation**: See `WIQL-FIX-DOCUMENTATION.md`
+
+**Problem**: WIQL queries were failing with TF51006 error message:
+```
+Error: TF51006: The query statement is missing a FROM clause. The error is caused by «200».
+```
+
+**Root Cause**: The issue was NOT a code bug - the MCP server process was running cached/old code even after rebuilding. The TypeScript code correctly handled WIQL queries, but the running MCP server process needed to be restarted to load the updated build.
+
+**Solution Applied**:
+1. Added comprehensive debug logging to trace request flow
+2. Created direct test script (`test-mcp-wiql.js`) that proved code was correct
+3. Identified that MCP server needed restart after rebuild
+4. Documented proper rebuild and restart procedure
+
+**Fix Procedure**:
+```bash
+# Rebuild and install
+npm run build && npm install -g
+
+# Restart MCP server
+kill <PID>  # Kill old MCP server process
+claude mcp list  # Trigger restart
+
+# Or restart Claude Code completely
+```
+
+**Verification**:
+- ✅ Basic WIQL queries working
+- ✅ Date filtering working (`WHERE [System.ChangedDate] >= '2026-02-11'`)
+- ✅ Complex queries with TOP, ORDER BY working
+- ✅ All WIQL macro support confirmed (@today, @me, etc.)
+
+**Impact**: All WIQL queries now function correctly. Users can query work items with full WIQL syntax support.
+
+**Files Modified**:
+- `src/handlers/tool-handlers.ts` - Added debug logging (lines 150-154, 170-171, 189-195, 268, 287-289)
+- Created `test-mcp-wiql.js` - Direct testing script
+- Created `WIQL-FIX-DOCUMENTATION.md` - Comprehensive fix documentation
+
+---
+
 ### **GitHub Issue #53** - Microsoft.VSTS Field Resolution Bug ✅ **RESOLVED**
 
 **Status**: ✅ **RESOLVED**  
-**Pull Request**: [#54](https://github.com/wangkanai/devops-mcp/pull/54)  
-**Commit**: [`48ed08c595ab5f7360650a225f4c683ebd294d63`](https://github.com/wangkanai/devops-mcp/commit/48ed08c595ab5f7360650a225f4c683ebd294d63) - fix: CRITICAL - resolve GitHub issue #53 - Microsoft.VSTS field resolution bug  
+**Pull Request**: [#54](https://github.com/sirforce/devops-mcp/pull/54)  
+**Commit**: [`48ed08c595ab5f7360650a225f4c683ebd294d63`](https://github.com/sirforce/devops-mcp/commit/48ed08c595ab5f7360650a225f4c683ebd294d63) - fix: CRITICAL - resolve GitHub issue #53 - Microsoft.VSTS field resolution bug  
 **Date Resolved**: 2025-07-27  
 
 **Problem**: Work item creation was failing due to improper handling of Microsoft.VSTS field names in Azure DevOps API calls.
@@ -38,8 +85,8 @@ Issue tracking and resolution documentation for the DevOps MCP project.
 ### **GitHub Issue #51** - Microsoft.VSTS Field Resolution Bug in createWorkItem ✅ **RESOLVED**
 
 **Status**: ✅ **RESOLVED**  
-**Pull Request**: [#52](https://github.com/wangkanai/devops-mcp/pull/52)  
-**Commit**: [`d41f5a0aa5b05695f63284314eca19ea5c550ec5`](https://github.com/wangkanai/devops-mcp/commit/d41f5a0aa5b05695f63284314eca19ea5c550ec5) - fix: resolve GitHub issue #51 - Microsoft.VSTS field resolution bug in createWorkItem  
+**Pull Request**: [#52](https://github.com/sirforce/devops-mcp/pull/52)  
+**Commit**: [`d41f5a0aa5b05695f63284314eca19ea5c550ec5`](https://github.com/sirforce/devops-mcp/commit/d41f5a0aa5b05695f63284314eca19ea5c550ec5) - fix: resolve GitHub issue #51 - Microsoft.VSTS field resolution bug in createWorkItem  
 **Date Resolved**: 2025-07-27  
 
 **Problem**: Similar to issue #53, work item creation was experiencing field resolution problems specifically in the createWorkItem function.
@@ -58,7 +105,7 @@ Issue tracking and resolution documentation for the DevOps MCP project.
 ### **GitHub Issue #48** - Enhanced Field Name Resolution for Microsoft.VSTS Fields ✅ **RESOLVED**
 
 **Status**: ✅ **RESOLVED**  
-**Commit**: [`158e2b17bbf4f1fdc93295fd1c704e6f4fcc43f6`](https://github.com/wangkanai/devops-mcp/commit/158e2b17bbf4f1fdc93295fd1c704e6f4fcc43f6) - fix: resolve GitHub issue #48 - enhanced field name resolution for Microsoft.VSTS fields  
+**Commit**: [`158e2b17bbf4f1fdc93295fd1c704e6f4fcc43f6`](https://github.com/sirforce/devops-mcp/commit/158e2b17bbf4f1fdc93295fd1c704e6f4fcc43f6) - fix: resolve GitHub issue #48 - enhanced field name resolution for Microsoft.VSTS fields  
 **Date Resolved**: 2025-07-27  
 
 **Problem**: Need for enhanced field name resolution capabilities for Microsoft.VSTS fields beyond basic mapping.
@@ -77,7 +124,7 @@ Issue tracking and resolution documentation for the DevOps MCP project.
 ### **GitHub Issue #47** - Comment API Preview Version Handling ✅ **RESOLVED**
 
 **Status**: ✅ **RESOLVED**  
-**Commit**: [`e3b3e5634d8590ebd9a6d32419ae393d9767681a`](https://github.com/wangkanai/devops-mcp/commit/e3b3e5634d8590ebd9a6d32419ae393d9767681a) - fix: resolve GitHub issue #47 - enhance comment API preview version handling  
+**Commit**: [`e3b3e5634d8590ebd9a6d32419ae393d9767681a`](https://github.com/sirforce/devops-mcp/commit/e3b3e5634d8590ebd9a6d32419ae393d9767681a) - fix: resolve GitHub issue #47 - enhance comment API preview version handling  
 **Date Resolved**: 2025-07-27  
 
 **Problem**: Azure DevOps comment API was failing due to incorrect API version handling for preview features.
@@ -96,8 +143,8 @@ Issue tracking and resolution documentation for the DevOps MCP project.
 ### **GitHub Issue #45** - Comment API Version Requires Preview Flag ✅ **RESOLVED**
 
 **Status**: ✅ **RESOLVED**  
-**Pull Request**: [#46](https://github.com/wangkanai/devops-mcp/pull/46)  
-**Commit**: [`dd69e5584a18fecd3a08603cedaeba14fac901a3`](https://github.com/wangkanai/devops-mcp/commit/dd69e5584a18fecd3a08603cedaeba14fac901a3) - fix: resolve GitHub issue #45 - comment API version requires preview flag  
+**Pull Request**: [#46](https://github.com/sirforce/devops-mcp/pull/46)  
+**Commit**: [`dd69e5584a18fecd3a08603cedaeba14fac901a3`](https://github.com/sirforce/devops-mcp/commit/dd69e5584a18fecd3a08603cedaeba14fac901a3) - fix: resolve GitHub issue #45 - comment API version requires preview flag  
 **Date Resolved**: 2025-07-27  
 
 **Problem**: Comment API operations were failing because the API version requires a preview flag.
@@ -116,8 +163,8 @@ Issue tracking and resolution documentation for the DevOps MCP project.
 ### **GitHub Issue #43** - API Compatibility and Validation Fixes ✅ **RESOLVED**
 
 **Status**: ✅ **RESOLVED**  
-**Pull Request**: [#44](https://github.com/wangkanai/devops-mcp/pull/44)  
-**Commit**: [`e5e0d68e2a5bffd72f3f833916903e33efee8721`](https://github.com/wangkanai/devops-mcp/commit/e5e0d68e2a5bffd72f3f833916903e33efee8721) - fix: resolve GitHub issue #43 - API compatibility and validation fixes  
+**Pull Request**: [#44](https://github.com/sirforce/devops-mcp/pull/44)  
+**Commit**: [`e5e0d68e2a5bffd72f3f833916903e33efee8721`](https://github.com/sirforce/devops-mcp/commit/e5e0d68e2a5bffd72f3f833916903e33efee8721) - fix: resolve GitHub issue #43 - API compatibility and validation fixes  
 **Date Resolved**: 2025-07-27  
 
 **Problem**: Various API compatibility issues and validation problems across different Azure DevOps operations.
@@ -300,4 +347,4 @@ The DevOps MCP project has successfully resolved all identified issues and achie
 **Created**: 2025-07-27  
 **Project Status**: 🗄️ **ARCHIVED (COMPLETED)**  
 **Issue Tracking**: **COMPLETE** - All issues resolved  
-**GitHub Repository**: <https://github.com/wangkanai/devops-mcp>
+**GitHub Repository**: <https://github.com/sirforce/devops-mcp>

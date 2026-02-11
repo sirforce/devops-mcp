@@ -137,3 +137,11 @@ Thumbs.db
 
 # Local configuration files (contains PAT tokens)
 .azure-devops.json
+
+# Developer debug/test scripts that use real credentials
+# These scripts load .azure-devops.json and make live API calls.
+# They must NOT be tracked in version control.
+get-active-items.js
+test-wiql.js
+test-mcp-wiql.js
+test-parent-fix.js

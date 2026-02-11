@@ -173,7 +173,7 @@ describe('MCP Server Integration', () => {
         params: {
           name: 'get-current-context',
           arguments: {
-            directory: '/Users/wangkanai/Sources/riversync'
+            directory: '/Users/testuser/Projects/riversync'
           }
         }
       };

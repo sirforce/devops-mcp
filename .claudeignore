@@ -1,0 +1,39 @@
+# Azure DevOps MCP Server - Credential Protection
+# This file prevents Claude Code from accessing sensitive configuration files
+
+# Azure DevOps configuration files (contains PAT tokens)
+.azure-devops.json
+**/.azure-devops.json
+
+# Environment files
+.env
+.env.local
+.env.*.local
+**/.env
+**/.env.local
+
+# Token and credential files
+*.pat
+*.token
+*.key
+*.pem
+credentials.json
+secrets.json
+
+# Build artifacts
+node_modules/
+dist/
+build/
+*.log
+
+# Test outputs
+coverage/
+.nyc_output/
+
+# IDE and system files
+.DS_Store
+.vscode/
+.idea/
+*.swp
+*.swo
+*~

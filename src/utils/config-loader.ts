@@ -6,6 +6,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import { EnvironmentConfig } from '../types/index.js';
+import { LocalConfigLoader } from './local-config-loader.js';
 
 export class ConfigLoader {
   private static readonly DEFAULT_CONFIG_PATH = path.join(__dirname, '../../config/environments.json');
@@ -46,6 +47,10 @@ export class ConfigLoader {
       if (!mapping.config.organizationUrl || !mapping.config.pat || !mapping.config.project) {
         throw new Error('Each config must have organizationUrl, pat, and project properties');
       }
+
+      // Security: Validate that each mapping's organization URL uses HTTPS and points
+      // to a recognized Azure DevOps domain. Prevents PAT exfiltration via tampered config.
+      LocalConfigLoader.validateOrganizationUrl(mapping.config.organizationUrl);
     }
   }
 

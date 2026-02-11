@@ -1,12 +1,18 @@
 # Azure DevOps MCP
 
-[![npm version](https://badge.fury.io/js/@wangkanai%2Fdevops-mcp.svg)](https://badge.fury.io/js/@wangkanai%2Fdevops-mcp)
+> **🏠 LOCAL INSTALLATION ONLY**
+> This MCP server is designed for **localhost (127.0.0.1) use only** and is **NOT available on the NPM registry**.
+> You must build and install from source. See [Getting Started](#getting-started) below.
 
 A dynamic Azure DevOps MCP (Model Context Protocol) server that automatically switches authentication context based on the current working directory. This enables seamless integration with multiple Azure DevOps organizations and projects from a single MCP server.
 
-<a href="https://glama.ai/mcp/servers/@wangkanai/devops-enhanced-mcp">
-  <img width="380" height="200" src="https://glama.ai/mcp/servers/@wangkanai/devops-enhanced-mcp/badge" alt="DevOps Enhanced MCP server" />
-</a>
+## 🔒 Security Notice
+
+- ⚠️ **NOT on NPM** - This package is marked as `private: true` and cannot be published
+- 🏠 **Localhost only** - Runs exclusively on 127.0.0.1
+- 🔐 **Credential protection** - `.claudeignore` configured to prevent sharing of `.azure-devops.json`
+- 🔑 **Read-only PAT tokens** - Use minimal permissions for Azure DevOps access
+- 🚫 **Never commit tokens** - Always add `.azure-devops.json` to `.gitignore`
 
 ## Features
 
@@ -59,69 +65,126 @@ Each repository should contain a `.azure-devops.json` configuration file:
 ### Example Projects
 
 #### RiverSync Project
-- **Directory**: `/Users/wangkanai/Sources/riversync`
+- **Directory**: `/Users/you/Projects/riversync`
 - **Configuration**: `.azure-devops.json` with RiverSync organization settings
 
 #### Mula Project
-- **Directory**: `/Users/wangkanai/Sources/mula`
+- **Directory**: `/Users/you/Projects/mula`
 - **Configuration**: `.azure-devops.json` with Mula organization settings
 
-## Installation
+## Getting Started
 
-### Claude Code Installation (Recommended)
+### Prerequisites
+
+Before you begin, ensure you have:
+
+- **Node.js** v18 or later installed
+- **npm** package manager
+- **Git** for cloning the repository
+- An **Azure DevOps** account with appropriate permissions
+- A **Personal Access Token (PAT)** from Azure DevOps
+
+### Step 1: Clone and Build
+
+Since this package is **not on NPM**, you must build it from source:
 
 ```bash
-# Install and add to Claude Code MCP
-claude mcp add devops-mcp -- -y @wangkanai/devops-mcp
+# 1. Clone the repository
+git clone https://github.com/sirforce/devops-mcp.git
+cd devops-mcp
+
+# 2. Install dependencies
+npm install
+
+# 3. Build the TypeScript code
+npm run build
+
+# 4. Install globally for localhost use
+npm install -g .
 ```
 
-> **Note**: The `-y` flag automatically accepts the package installation prompt, ensuring smooth non-interactive execution for MCP servers.
+After installation, the `devops-mcp` command will be available globally on your system.
 
-### Claude Desktop Installation
+### Step 2: Configure Claude Code
 
-For Claude Desktop users, add this configuration to your MCP settings:
+Add the MCP server to Claude Code:
+
+```bash
+# Add the locally installed MCP server
+claude mcp add devops-mcp -- devops-mcp
+
+# Verify it was added
+claude mcp list
+```
+
+### Step 3: Configure Claude Desktop (Optional)
+
+If you're using Claude Desktop instead of Claude Code, add this configuration to your MCP settings file:
 
 ```json
 {
   "mcpServers": {
     "devops-mcp": {
-      "command": "npx",
-      "args": ["-y", "@wangkanai/devops-mcp"]
+      "command": "devops-mcp"
     }
   }
 }
 ```
 
-**Claude Desktop MCP Settings Location:**
+**Settings File Location:**
 - **macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`
 - **Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
+- **Linux**: `~/.config/Claude/claude_desktop_config.json`
 
-### Alternative Installation Methods
+### Step 4: Create Azure DevOps PAT Token
 
-#### Global Installation
+1. Go to your Azure DevOps organization
+2. Click on **User Settings** > **Personal Access Tokens**
+3. Create a new token with these **minimal permissions**:
+   - ✅ **Work Items**: Read & Write
+   - ✅ **Code**: Read
+   - ✅ **Build**: Read & Execute
+   - ✅ **Project and Team**: Read
+4. Copy the token - you'll need it in the next step
+
+### Step 5: Configure Your Project
+
+In each project directory where you want to use Azure DevOps integration, create a `.azure-devops.json` configuration file:
+
 ```bash
-# Install globally
-npm install -g @wangkanai/devops-mcp
+# Navigate to your project directory
+cd /path/to/your/project
 
-# Add to Claude Code MCP
-claude mcp add devops-mcp -- devops-mcp
+# Create configuration file
+cat > .azure-devops.json << 'EOF'
+{
+  "organizationUrl": "https://dev.azure.com/your-organization",
+  "project": "YourProjectName",
+  "pat": "your-pat-token-here",
+  "description": "Azure DevOps configuration for this project"
+}
+EOF
+
+# Secure your configuration - add to .gitignore
+echo ".azure-devops.json" >> .gitignore
+
+# Verify .claudeignore exists and contains .azure-devops.json
+# This prevents Claude from accessing your credentials
 ```
 
-#### Development Installation
+### Step 6: Verify Installation
+
+Test that everything is working:
+
 ```bash
-# Clone repository
-git clone https://github.com/wangkanai/devops-mcp.git
-cd devops-mcp
+# Get current Azure DevOps context
+mcp__devops-mcp__get-current-context
 
-# Install dependencies
-npm install
-
-# Build the project
-npm run build
-
-# Start the server
-npm start
+# Test by querying a work item
+mcp__devops-mcp__get-work-items --wiql "SELECT TOP 1 [System.Id], [System.Title] FROM WorkItems"
 ```
+
+If you see your Azure DevOps context information and can query work items, you're all set!
 
 ## Development
 
@@ -173,7 +236,7 @@ npm run clean
 {
   "name": "get-current-context",
   "arguments": {
-    "directory": "/Users/wangkanai/Sources/riversync"
+    "directory": "/Users/you/Projects/riversync"
   }
 }
 ```
@@ -262,11 +325,11 @@ Each repository should contain a `.azure-devops.json` configuration file:
 ### Example Projects
 
 #### RiverSync Project
-- **Directory**: `/Users/wangkanai/Sources/riversync`
+- **Directory**: `/Users/you/Projects/riversync`
 - **Configuration**: `.azure-devops.json` with RiverSync organization settings
 
 #### Mula Project
-- **Directory**: `/Users/wangkanai/Sources/mula`
+- **Directory**: `/Users/you/Projects/mula`
 - **Configuration**: `.azure-devops.json` with Mula organization settings
 
 ## Authentication
@@ -339,11 +402,11 @@ The generic validation system uses `validation-config.json`:
 
 ```json
 {
-  "proxyPath": "/Users/wangkanai/Sources/devops-mcp",
+  "proxyPath": "/Users/you/Projects/devops-mcp",
   "repositories": [
     {
       "name": "RiverSync",
-      "path": "/Users/wangkanai/Sources/riversync",
+      "path": "/Users/you/Projects/riversync",
       "expectedOrganization": "riversync",
       "organizationUrl": "https://dev.azure.com/riversync",
       "project": "RiverSync",
@@ -429,26 +492,31 @@ This MCP server is designed to work seamlessly with Claude Code for Azure DevOps
 
 ### Common Issues
 
-#### 1. Installation Command Issues (Issue #14 Resolution)
+#### 1. Installation Issues
 
-**Problem**: Incorrect installation commands that fail to start the server
+**Problem**: Unable to find or install the package
 
-**Root Cause**: Outdated documentation showing incorrect command syntax
-
-**Solution**: Use the correct installation command:
+**Solution**: This package is **not on NPM**. You must build from source:
 
 ```bash
-# ✅ Correct (RECOMMENDED)
-claude mcp add devops-mcp -- -y @wangkanai/devops-mcp
+# Clone and build from source
+git clone https://github.com/sirforce/devops-mcp.git
+cd devops-mcp
+npm install
+npm run build
+npm install -g .
 
-# ❌ Incorrect (will fail)
+# Then add to Claude Code
+claude mcp add devops-mcp -- devops-mcp
 ```
 
-**Alternative working commands**:
+**Verify installation**:
 ```bash
-# Global installation method
-npm install -g @wangkanai/devops-mcp
-claude mcp add devops-mcp -- devops-mcp
+# Check if globally installed
+npm list -g devops-mcp
+
+# Test the command directly
+devops-mcp --version
 ```
 
 #### 2. Configuration Issues
@@ -481,12 +549,14 @@ export DEBUG=devops-mcp
 npm start
 ```
 
-### NPM Package Technical Details
+### Package Technical Details
 
-- **Package Name**: `@wangkanai/devops-mcp`
-- **Binary Name**: `devops-mcp` (auto-generated by NPM)
-- **Latest Version**: Check with `npm view @wangkanai/devops-mcp version`
-- **Installation Verification**: `npm list -g @wangkanai/devops-mcp`
+- **Package Name**: `devops-mcp` (local installation only)
+- **Binary Name**: `devops-mcp` (available after `npm install -g .`)
+- **Distribution**: **NOT on NPM registry** - must be built from source
+- **Version**: Check `package.json` in the repository
+- **Installation Verification**: `npm list -g devops-mcp`
+- **Build Command**: `npm run build` (compiles TypeScript to JavaScript)
 
 ## License
 
