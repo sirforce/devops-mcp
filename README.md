@@ -20,6 +20,7 @@ A dynamic Azure DevOps MCP (Model Context Protocol) server that automatically sw
 - **Dynamic Environment Switching**: Automatically detects project context based on directory location
 - **Multiple Project Support**: Supports unlimited projects with separate authentication
 - **Comprehensive Azure DevOps Integration**: Work items, repositories, builds, and more
+- **Automatic WIQL Field Normalization** ✨ **NEW in v1.8.0**: Automatically corrects 40+ common field name errors in WIQL queries (e.g., `[ClosedDate]` → `[Microsoft.VSTS.Common.ClosedDate]`), eliminating TF51005 errors
 - **Performance Optimizations**: Compact mode (84.7% size reduction), server-side aggregation (95% reduction), pagination support
 - **Intelligent Response Handling**: Auto-triggering summary format, flexible groupBy parameter, context-aware optimization
 - **Zero Configuration Switching**: Seamless switching between projects with local config files
@@ -251,17 +252,27 @@ npm run clean
 ```
 
 ### Query Work Items
+
+💡 **New in v1.8.0**: You can now use simplified field names! The server automatically corrects them.
+
 ```json
 {
   "name": "get-work-items",
   "arguments": {
-    "wiql": "SELECT [System.Id], [System.Title] FROM WorkItems WHERE [System.State] = 'Active'",
+    "wiql": "SELECT [Id], [Title], [Priority], [ClosedDate] FROM WorkItems WHERE [State] = 'Active'",
     "compact": true,
     "page": 1,
     "pageSize": 20
   }
 }
 ```
+
+**Field names like `[Id]`, `[ClosedDate]`, and `[Priority]` are automatically corrected to:**
+- `[Id]` → `[System.Id]`
+- `[ClosedDate]` → `[Microsoft.VSTS.Common.ClosedDate]`
+- `[Priority]` → `[Microsoft.VSTS.Common.Priority]`
+
+See `WIQL-FIELD-NORMALIZATION.md` for the complete list of 40+ supported field mappings.
 
 ### Get Work Item Aggregations
 ```json

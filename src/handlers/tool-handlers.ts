@@ -12,6 +12,55 @@ export class ToolHandlers {
   private currentConfig: AzureDevOpsConfig | null = null;
 
   /**
+   * Common field name mappings for WIQL queries
+   * Maps user-friendly or commonly misused field names to their correct Azure DevOps field references
+   * This prevents TF51005 "field does not exist" errors by auto-correcting field names
+   */
+  private static readonly WIQL_FIELD_ALIASES: Record<string, string> = {
+    // Date fields - commonly confused with System.* prefix
+    'ClosedDate': 'Microsoft.VSTS.Common.ClosedDate',
+    'ResolvedDate': 'Microsoft.VSTS.Common.ResolvedDate',
+    'ActivatedDate': 'Microsoft.VSTS.Common.ActivatedDate',
+    'StateChangeDate': 'Microsoft.VSTS.Common.StateChangeDate',
+
+    // Priority and Severity fields
+    'Priority': 'Microsoft.VSTS.Common.Priority',
+    'Severity': 'Microsoft.VSTS.Common.Severity',
+    'StackRank': 'Microsoft.VSTS.Common.StackRank',
+    'ValueArea': 'Microsoft.VSTS.Common.ValueArea',
+
+    // Scheduling fields
+    'StoryPoints': 'Microsoft.VSTS.Scheduling.StoryPoints',
+    'Effort': 'Microsoft.VSTS.Scheduling.Effort',
+    'OriginalEstimate': 'Microsoft.VSTS.Scheduling.OriginalEstimate',
+    'RemainingWork': 'Microsoft.VSTS.Scheduling.RemainingWork',
+    'CompletedWork': 'Microsoft.VSTS.Scheduling.CompletedWork',
+
+    // Bug-specific fields
+    'ReproSteps': 'Microsoft.VSTS.TCM.ReproSteps',
+    'SystemInfo': 'Microsoft.VSTS.TCM.SystemInfo',
+
+    // Common System fields that users might forget to prefix
+    'Title': 'System.Title',
+    'State': 'System.State',
+    'AssignedTo': 'System.AssignedTo',
+    'CreatedDate': 'System.CreatedDate',
+    'CreatedBy': 'System.CreatedBy',
+    'ChangedDate': 'System.ChangedDate',
+    'ChangedBy': 'System.ChangedBy',
+    'WorkItemType': 'System.WorkItemType',
+    'Tags': 'System.Tags',
+    'IterationPath': 'System.IterationPath',
+    'AreaPath': 'System.AreaPath',
+    'Description': 'System.Description',
+    'History': 'System.History',
+    'TeamProject': 'System.TeamProject',
+    'Parent': 'System.Parent',
+    'BoardColumn': 'System.BoardColumn',
+    'BoardColumnDone': 'System.BoardColumnDone'
+  };
+
+  /**
    * Set the current Azure DevOps configuration
    */
   setCurrentConfig(config: AzureDevOpsConfig): void {
@@ -52,6 +101,62 @@ export class ToolHandlers {
   private escapeWiqlValue(value: string): string {
     // WIQL uses single-quoted string literals; escape embedded single quotes by doubling them
     return value.replace(/'/g, "''");
+  }
+
+  /**
+   * Normalize WIQL field names by replacing common aliases with their correct Azure DevOps field references.
+   * This prevents TF51005 "field does not exist" errors by auto-correcting commonly misused field names.
+   *
+   * Examples:
+   * - [ClosedDate] → [Microsoft.VSTS.Common.ClosedDate]
+   * - [System.ClosedDate] → [Microsoft.VSTS.Common.ClosedDate]
+   * - [Priority] → [Microsoft.VSTS.Common.Priority]
+   * - [Title] → [System.Title]
+   *
+   * @param wiql The WIQL query string to normalize
+   * @returns The normalized WIQL query with corrected field names
+   */
+  private normalizeWiqlFieldNames(wiql: string): string {
+    let normalized = wiql;
+    let replacementCount = 0;
+
+    // Process each alias mapping
+    for (const [alias, fullName] of Object.entries(ToolHandlers.WIQL_FIELD_ALIASES)) {
+      // Pattern 1: Match [alias] without any prefix
+      const patternNoPrefix = new RegExp(`\\[(?!System\\.|Microsoft\\.VSTS\\.)${alias.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\]`, 'gi');
+
+      if (patternNoPrefix.test(normalized)) {
+        const beforeReplace = normalized;
+        normalized = normalized.replace(patternNoPrefix, `[${fullName}]`);
+
+        if (normalized !== beforeReplace) {
+          replacementCount++;
+          console.error(`[WIQL-NORMALIZE] Corrected field name: [${alias}] → [${fullName}]`);
+        }
+      }
+
+      // Pattern 2: Match [System.alias] when the field should actually be in Microsoft.VSTS namespace
+      // This handles cases like [System.ClosedDate] which should be [Microsoft.VSTS.Common.ClosedDate]
+      if (fullName.startsWith('Microsoft.VSTS.')) {
+        const patternSystemPrefix = new RegExp(`\\[System\\.${alias.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\]`, 'gi');
+
+        if (patternSystemPrefix.test(normalized)) {
+          const beforeReplace = normalized;
+          normalized = normalized.replace(patternSystemPrefix, `[${fullName}]`);
+
+          if (normalized !== beforeReplace) {
+            replacementCount++;
+            console.error(`[WIQL-NORMALIZE] Corrected incorrectly prefixed field: [System.${alias}] → [${fullName}]`);
+          }
+        }
+      }
+    }
+
+    if (replacementCount > 0) {
+      console.error(`[WIQL-NORMALIZE] Applied ${replacementCount} field name correction(s) to WIQL query`);
+    }
+
+    return normalized;
   }
 
   /**
@@ -514,8 +619,11 @@ export class ToolHandlers {
       // Execute WIQL query to get work items
       const { query: cleanWiql, top } = this.extractWiqlTop(args.wiql);
 
+      // Normalize field names to prevent TF51005 errors (e.g., [ClosedDate] → [Microsoft.VSTS.Common.ClosedDate])
+      const normalizedWiql = this.normalizeWiqlFieldNames(cleanWiql);
+
       const wiqlResult = await this.makeApiRequest(`/wit/wiql?api-version=7.1&$top=${top}`, 'POST', {
-        query: cleanWiql
+        query: normalizedWiql
       });
 
       if (!wiqlResult.workItems || wiqlResult.workItems.length === 0) {
@@ -591,8 +699,11 @@ export class ToolHandlers {
         // A default $top=200 is applied when no TOP is specified to prevent VS402337 (20,000 limit).
         const { query: cleanWiql, top } = this.extractWiqlTop(args.wiql);
 
+        // Normalize field names to prevent TF51005 errors (e.g., [ClosedDate] → [Microsoft.VSTS.Common.ClosedDate])
+        const normalizedWiql = this.normalizeWiqlFieldNames(cleanWiql);
+
         const wiqlResult = await this.makeApiRequest(`/wit/wiql?api-version=7.1&$top=${top}`, 'POST', {
-          query: cleanWiql
+          query: normalizedWiql
         });
         
         if (wiqlResult.workItems && wiqlResult.workItems.length > 0) {

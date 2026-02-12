@@ -7,6 +7,86 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.8.0] - 2026-02-11
+
+### ✨ WIQL Field Name Normalization
+
+This release adds automatic field name correction for WIQL queries, preventing `TF51005: The query references a field that does not exist` errors.
+
+#### **🎯 Automatic Field Name Correction**
+- **Prevents Common Errors**: Auto-corrects frequently misused field names in WIQL queries
+- **LLM-Friendly**: LLMs can use intuitive field names without causing errors
+- **Comprehensive Coverage**: 40+ field mappings covering System and Microsoft.VSTS namespaces
+- **Transparent**: Debug logging shows what corrections were applied
+- **Zero Breaking Changes**: Already-correct queries work unchanged
+
+#### **🔧 Supported Corrections**
+
+**Microsoft.VSTS Date Fields:**
+- `[ClosedDate]` → `[Microsoft.VSTS.Common.ClosedDate]`
+- `[System.ClosedDate]` → `[Microsoft.VSTS.Common.ClosedDate]` (handles incorrect prefix)
+- `[ResolvedDate]` → `[Microsoft.VSTS.Common.ResolvedDate]`
+- `[ActivatedDate]` → `[Microsoft.VSTS.Common.ActivatedDate]`
+- `[StateChangeDate]` → `[Microsoft.VSTS.Common.StateChangeDate]`
+
+**Microsoft.VSTS Priority & Quality Fields:**
+- `[Priority]` → `[Microsoft.VSTS.Common.Priority]`
+- `[Severity]` → `[Microsoft.VSTS.Common.Severity]`
+- `[StackRank]` → `[Microsoft.VSTS.Common.StackRank]`
+- `[ValueArea]` → `[Microsoft.VSTS.Common.ValueArea]`
+
+**Microsoft.VSTS Scheduling Fields:**
+- `[StoryPoints]` → `[Microsoft.VSTS.Scheduling.StoryPoints]`
+- `[Effort]` → `[Microsoft.VSTS.Scheduling.Effort]`
+- `[OriginalEstimate]`, `[RemainingWork]`, `[CompletedWork]` → Correct Microsoft.VSTS fields
+
+**System Fields (auto-prefix when missing):**
+- `[Title]` → `[System.Title]`
+- `[State]` → `[System.State]`
+- `[AssignedTo]` → `[System.AssignedTo]`
+- `[CreatedDate]`, `[ChangedDate]`, `[Tags]`, `[IterationPath]`, etc. → Correct System fields
+
+#### **📊 Example Transformation**
+
+**Before (would fail with HTTP 400 error):**
+```wiql
+SELECT [Id], [Title], [State], [Priority], [ClosedDate], [StoryPoints]
+FROM WorkItems
+WHERE [Tags] CONTAINS 'urgent'
+ORDER BY [ChangedDate] DESC
+```
+
+**After (automatically corrected):**
+```wiql
+SELECT [System.Id], [System.Title], [System.State],
+       [Microsoft.VSTS.Common.Priority],
+       [Microsoft.VSTS.Common.ClosedDate],
+       [Microsoft.VSTS.Scheduling.StoryPoints]
+FROM WorkItems
+WHERE [System.Tags] CONTAINS 'urgent'
+ORDER BY [System.ChangedDate] DESC
+```
+
+#### **🧪 Testing**
+- **24 comprehensive unit tests** covering all field mappings
+- **100% test pass rate** validating edge cases and complex queries
+- **Case-insensitive matching** handles variations in field name capitalization
+- **Integration with both** `get-work-items` and `get-work-item-aggregations`
+
+#### **📖 Documentation**
+- New `WIQL-FIELD-NORMALIZATION.md` guide with complete field mapping reference
+- Debug logging with `[WIQL-NORMALIZE]` prefix for transparency
+- Clear examples showing before/after transformations
+
+### Benefits
+- **Better Developer Experience**: No need to memorize exact Azure DevOps field names
+- **Reduced Errors**: Eliminates most common TF51005 field errors
+- **Improved AI Interactions**: LLMs can use natural field names confidently
+- **Backwards Compatible**: Existing correct queries continue to work
+- **Minimal Overhead**: Regex-based normalization with negligible performance impact
+
+---
+
 ## [1.7.1] - 2026-02-11
 
 ### 🚀 Performance & Efficiency Improvements

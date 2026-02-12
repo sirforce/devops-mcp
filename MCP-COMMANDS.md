@@ -130,6 +130,8 @@ Your Personal Access Token must have these specific permissions:
 
 **Purpose**: Retrieve work items using flexible queries, specific IDs, or intelligent defaults with comprehensive field support.
 
+✨ **New in v1.8.0**: Automatic WIQL field name correction! You can now use simplified field names (e.g., `[ClosedDate]`, `[Priority]`, `[Title]`) and the server automatically corrects them to proper Azure DevOps field references. This prevents `TF51005: The query references a field that does not exist` errors. See the [WIQL Field Normalization](#-wiql-field-normalization-new-in-v180) section below for details.
+
 #### Parameters
 
 | Parameter | Type | Required | Description | Example Values |
@@ -1242,10 +1244,99 @@ mcp__devops-mcp__get-work-items \
 
 # Get blocked work items
 mcp__devops-mcp__get-work-items \
-  --wiql "SELECT [System.Id], [System.Title], [System.Tags] 
-          FROM WorkItems 
-          WHERE [System.Tags] CONTAINS 'blocked' 
+  --wiql "SELECT [System.Id], [System.Title], [System.Tags]
+          FROM WorkItems
+          WHERE [System.Tags] CONTAINS 'blocked'
           AND [System.State] = 'Active'"
+```
+
+### 🎨 WIQL Field Normalization (New in v1.8.0)
+
+The MCP server now automatically corrects common field name errors in WIQL queries, making queries more intuitive and preventing `TF51005` errors.
+
+#### How It Works
+
+You can now write WIQL queries using simplified, intuitive field names, and the server automatically corrects them to proper Azure DevOps field references before sending to the API.
+
+**Before (would cause TF51005 error):**
+```sql
+SELECT [Id], [Title], [Priority], [ClosedDate], [StoryPoints]
+FROM WorkItems
+WHERE [State] = 'Closed' AND [Tags] CONTAINS 'urgent'
+```
+
+**Now (automatically corrected):**
+```sql
+SELECT [System.Id], [System.Title], [Microsoft.VSTS.Common.Priority],
+       [Microsoft.VSTS.Common.ClosedDate], [Microsoft.VSTS.Scheduling.StoryPoints]
+FROM WorkItems
+WHERE [System.State] = 'Closed' AND [System.Tags] CONTAINS 'urgent'
+```
+
+#### Supported Field Corrections
+
+**Microsoft.VSTS Date Fields:**
+- `[ClosedDate]` or `[System.ClosedDate]` → `[Microsoft.VSTS.Common.ClosedDate]`
+- `[ResolvedDate]` → `[Microsoft.VSTS.Common.ResolvedDate]`
+- `[ActivatedDate]` → `[Microsoft.VSTS.Common.ActivatedDate]`
+- `[StateChangeDate]` → `[Microsoft.VSTS.Common.StateChangeDate]`
+
+**Microsoft.VSTS Priority & Quality:**
+- `[Priority]` → `[Microsoft.VSTS.Common.Priority]`
+- `[Severity]` → `[Microsoft.VSTS.Common.Severity]`
+- `[StackRank]` → `[Microsoft.VSTS.Common.StackRank]`
+- `[ValueArea]` → `[Microsoft.VSTS.Common.ValueArea]`
+
+**Microsoft.VSTS Scheduling:**
+- `[StoryPoints]` → `[Microsoft.VSTS.Scheduling.StoryPoints]`
+- `[Effort]` → `[Microsoft.VSTS.Scheduling.Effort]`
+- `[OriginalEstimate]` → `[Microsoft.VSTS.Scheduling.OriginalEstimate]`
+- `[RemainingWork]` → `[Microsoft.VSTS.Scheduling.RemainingWork]`
+- `[CompletedWork]` → `[Microsoft.VSTS.Scheduling.CompletedWork]`
+
+**System Fields (auto-prefix when missing):**
+- `[Id]` → `[System.Id]`
+- `[Title]` → `[System.Title]`
+- `[State]` → `[System.State]`
+- `[AssignedTo]` → `[System.AssignedTo]`
+- `[CreatedDate]`, `[ChangedDate]`, `[Tags]`, `[IterationPath]`, `[Parent]`, etc.
+
+#### Example: Simplified Query
+
+```bash
+# You can now write this (much simpler!)
+mcp__devops-mcp__get-work-items \
+  --wiql "SELECT [Id], [Title], [Priority], [ClosedDate], [StoryPoints]
+          FROM WorkItems
+          WHERE [Tags] CONTAINS 'urgent'
+          AND [State] = 'Closed'
+          ORDER BY [ChangedDate] DESC"
+
+# The server automatically corrects it to the proper format
+# No more TF51005 errors!
+```
+
+#### Debug Output
+
+The server logs field corrections for transparency:
+
+```
+[WIQL-NORMALIZE] Corrected field name: [ClosedDate] → [Microsoft.VSTS.Common.ClosedDate]
+[WIQL-NORMALIZE] Corrected field name: [Priority] → [Microsoft.VSTS.Common.Priority]
+[WIQL-NORMALIZE] Applied 2 field name correction(s) to WIQL query
+```
+
+#### Complete Reference
+
+See `WIQL-FIELD-NORMALIZATION.md` for the complete list of 40+ supported field mappings and detailed examples.
+
+#### Benefits
+
+✅ **LLM-Friendly**: Use intuitive field names without memorizing Azure DevOps namespaces
+✅ **Error-Free**: Eliminates most common WIQL field errors automatically
+✅ **Transparent**: Debug logs show exactly what was corrected
+✅ **Backwards Compatible**: Already-correct queries work unchanged
+✅ **Zero Configuration**: Works automatically on all WIQL queries
 ```
 
 #### Date and Time Functions

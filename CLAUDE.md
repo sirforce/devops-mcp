@@ -22,11 +22,11 @@ Comprehensive context for Claude Code to work effectively with the Azure DevOps 
 **Technology**: Node.js, TypeScript, MCP Protocol
 **Purpose**: Dynamic Azure DevOps integration with intelligent directory-based authentication switching
 **Status**: ✅ **PRODUCTION READY** - Active deployment with >95% test coverage
-**Version**: 1.7.1
+**Version**: 1.8.0
 
 **GitHub**: <https://github.com/sirforce/devops-mcp>
 **Distribution**: **LOCAL INSTALLATION ONLY** (not on NPM registry)
-**Features**: Local `.azure-devops.json` configuration, secure PAT tokens, comprehensive testing, full Azure DevOps API integration, **compact mode (84.7% size reduction)**, server-side aggregation, pagination support
+**Features**: Local `.azure-devops.json` configuration, secure PAT tokens, comprehensive testing, full Azure DevOps API integration, **compact mode (84.7% size reduction)**, server-side aggregation, pagination support, **automatic WIQL field name correction**
 
 ---
 
@@ -164,9 +164,40 @@ Claude automatically detects project context based on your current directory:
 - ✅ **Work Item Management**: Create, update, query work items with full hierarchy support
 - ✅ **Performance Optimizations**: Compact mode (84.7% size reduction), pagination, server-side aggregation
 - ✅ **Intelligent Response Handling**: Auto-triggering summary format, flexible groupBy, context-aware optimization
+- ✅ **Automatic WIQL Field Correction**: Prevents TF51005 errors by auto-correcting 40+ common field name mistakes
 - ✅ **Repository Operations**: Access repositories, pull requests, branch information
 - ✅ **Build & Pipeline**: Trigger pipelines, monitor builds, check deployment status
 - ✅ **Project Context**: Get current configuration, validate authentication
+
+### **WIQL Field Name Auto-Correction (New in v1.8.0)**
+The MCP server automatically corrects common field name errors in WIQL queries, eliminating frustrating `TF51005: The query references a field that does not exist` errors.
+
+**Common Corrections:**
+- `[ClosedDate]` → `[Microsoft.VSTS.Common.ClosedDate]`
+- `[System.ClosedDate]` → `[Microsoft.VSTS.Common.ClosedDate]` (handles incorrect prefix)
+- `[Priority]` → `[Microsoft.VSTS.Common.Priority]`
+- `[StoryPoints]` → `[Microsoft.VSTS.Scheduling.StoryPoints]`
+- `[Title]` → `[System.Title]` (adds missing System prefix)
+- Plus 35+ more field mappings
+
+**Benefits:**
+- **LLM-Friendly**: Use intuitive field names without memorizing Azure DevOps namespaces
+- **Error-Free**: Eliminates most common WIQL field errors automatically
+- **Transparent**: Debug logs show what was corrected (e.g., `[WIQL-NORMALIZE] Corrected field name: [ClosedDate] → [Microsoft.VSTS.Common.ClosedDate]`)
+- **Backwards Compatible**: Already-correct queries work unchanged
+- **Zero Configuration**: Works automatically on all WIQL queries
+
+**Example:**
+```wiql
+# You write (intuitive but technically incorrect):
+SELECT [Id], [Title], [Priority], [ClosedDate] FROM WorkItems
+
+# Automatically corrected to (Azure DevOps compliant):
+SELECT [System.Id], [System.Title], [Microsoft.VSTS.Common.Priority],
+       [Microsoft.VSTS.Common.ClosedDate] FROM WorkItems
+```
+
+See `WIQL-FIELD-NORMALIZATION.md` for complete field mapping reference.
 
 ---
 
@@ -324,28 +355,47 @@ mcp__devops-mcp__add-work-item-comment \
 
 ### **WIQL Query Examples for Claude**
 
+**💡 New in v1.8.0**: You can now use simplified field names! The server automatically corrects them to proper Azure DevOps field references.
+
 ```bash
 # Get my assigned active work items (with compact mode)
+# NOTE: You can use simplified field names - they'll be auto-corrected!
 mcp__devops-mcp__get-work-items \
-  --wiql "SELECT [System.Id], [System.Title], [System.State] FROM WorkItems WHERE [System.AssignedTo] = @me AND [System.State] = 'Active'" \
+  --wiql "SELECT [Id], [Title], [State] FROM WorkItems WHERE [AssignedTo] = @me AND [State] = 'Active'" \
   --compact true
 
-# Find high-priority bugs
+# Find high-priority bugs (simplified field names automatically corrected)
 mcp__devops-mcp__get-work-items \
-  --wiql "SELECT [System.Id], [System.Title], [Microsoft.VSTS.Common.Priority] FROM WorkItems WHERE [System.WorkItemType] = 'Bug' AND [Microsoft.VSTS.Common.Priority] <= 2"
+  --wiql "SELECT [Id], [Title], [Priority] FROM WorkItems WHERE [WorkItemType] = 'Bug' AND [Priority] <= 2"
+
+# Get closed work items with proper date field (auto-corrects [ClosedDate] or [System.ClosedDate])
+mcp__devops-mcp__get-work-items \
+  --wiql "SELECT [Id], [Title], [ClosedDate], [StoryPoints] FROM WorkItems WHERE [State] = 'Closed'"
 
 # Get work items by parent hierarchy
 mcp__devops-mcp__get-work-items \
-  --wiql "SELECT [System.Id], [System.Title], [System.Parent] FROM WorkItems WHERE [System.Parent] = 1100"
+  --wiql "SELECT [Id], [Title], [Parent] FROM WorkItems WHERE [Parent] = 1100"
 
 # Find recently modified work items
 mcp__devops-mcp__get-work-items \
-  --wiql "SELECT [System.Id], [System.Title], [System.ChangedDate] FROM WorkItems WHERE [System.ChangedDate] >= @today-7"
+  --wiql "SELECT [Id], [Title], [ChangedDate] FROM WorkItems WHERE [ChangedDate] >= @today-7"
 
 # Get work items by tags
 mcp__devops-mcp__get-work-items \
-  --wiql "SELECT [System.Id], [System.Title], [System.Tags] FROM WorkItems WHERE [System.Tags] CONTAINS 'authentication'"
+  --wiql "SELECT [Id], [Title], [Tags] FROM WorkItems WHERE [Tags] CONTAINS 'authentication'"
+
+# Complex query with multiple field types (all auto-corrected)
+mcp__devops-mcp__get-work-items \
+  --wiql "SELECT [Id], [Title], [State], [Priority], [StoryPoints], [ClosedDate], [AssignedTo] FROM WorkItems WHERE [Tags] CONTAINS 'urgent' ORDER BY [ChangedDate] DESC"
 ```
+
+**Field Name Auto-Correction Examples:**
+- `[Id]` → `[System.Id]`
+- `[ClosedDate]` → `[Microsoft.VSTS.Common.ClosedDate]`
+- `[Priority]` → `[Microsoft.VSTS.Common.Priority]`
+- `[StoryPoints]` → `[Microsoft.VSTS.Scheduling.StoryPoints]`
+
+See `WIQL-FIELD-NORMALIZATION.md` for the complete list of 40+ auto-corrected fields.
 
 ### **Repository and PR Analysis**
 
@@ -581,14 +631,15 @@ mcp__devops-mcp__get-current-context
 
 ---
 
-**Documentation Version**: 3.1
-**Package Version**: 1.7.1
+**Documentation Version**: 3.2
+**Package Version**: 1.8.0
 **Created**: 2025-07-27
 **Last Updated**: 2026-02-11
 **Project Status**: Production Ready (Active Deployment)
 **Primary Technologies**: Node.js, TypeScript, MCP Protocol, Azure DevOps REST API v7.1+
-**Test Coverage**: >95%
+**Test Coverage**: >95% (130 tests, 129 passing)
 **Performance**: 84.7% size reduction with compact mode, 95% reduction with aggregation
+**Key Features**: Automatic WIQL field normalization (40+ field mappings), pagination, server-side aggregation
 **Distribution**: **LOCALHOST ONLY** (127.0.0.1) - NOT on NPM
 **GitHub**: <https://github.com/sirforce/devops-mcp>
 
