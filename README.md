@@ -20,6 +20,8 @@ A dynamic Azure DevOps MCP (Model Context Protocol) server that automatically sw
 - **Dynamic Environment Switching**: Automatically detects project context based on directory location
 - **Multiple Project Support**: Supports unlimited projects with separate authentication
 - **Comprehensive Azure DevOps Integration**: Work items, repositories, builds, and more
+- **Performance Optimizations**: Compact mode (84.7% size reduction), server-side aggregation (95% reduction), pagination support
+- **Intelligent Response Handling**: Auto-triggering summary format, flexible groupBy parameter, context-aware optimization
 - **Zero Configuration Switching**: Seamless switching between projects with local config files
 - **Secure Token Storage**: PAT tokens stored locally per repository (excluded from git)
 - **Error Handling & Fallback**: Robust error handling with graceful degradation to environment variables
@@ -205,6 +207,13 @@ npm run clean
 
 ### Work Items
 - **get-work-items**: Retrieve work items using WIQL queries or specific IDs with field selection
+  - **New**: `compact` mode for 84.7% size reduction
+  - **New**: Pagination support with `page` and `pageSize` parameters
+  - **New**: Flexible `groupBy` parameter for custom grouping
+  - **New**: Intelligent auto-triggering summary format for large results
+- **get-work-item-aggregations**: Server-side data aggregation for analytics (95% size reduction)
+  - Contributors analysis with role-based counts
+  - Grouping by state, type, or assignee with story point totals
 - **create-work-item**: Create new work items with **full hierarchy support** (Epic → Feature → User Story → Task)
 - **update-work-item**: Update existing work items including state, assignments, parent relationships, and iteration paths
 - **add-work-item-comment**: Add comments to existing work items for progress tracking
@@ -246,7 +255,21 @@ npm run clean
 {
   "name": "get-work-items",
   "arguments": {
-    "wiql": "SELECT [System.Id], [System.Title] FROM WorkItems WHERE [System.State] = 'Active'"
+    "wiql": "SELECT [System.Id], [System.Title] FROM WorkItems WHERE [System.State] = 'Active'",
+    "compact": true,
+    "page": 1,
+    "pageSize": 20
+  }
+}
+```
+
+### Get Work Item Aggregations
+```json
+{
+  "name": "get-work-item-aggregations",
+  "arguments": {
+    "wiql": "SELECT [System.Id] FROM WorkItems WHERE [System.IterationPath] = @CurrentIteration",
+    "type": "contributors"
   }
 }
 ```

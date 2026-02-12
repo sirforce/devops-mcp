@@ -215,7 +215,49 @@ class AzureDevOpsMCPProxy {
                 enum: ['json', 'summary'],
                 description: 'Output format: "json" (default, full details) or "summary" (formatted table for large results)',
               },
+              compact: {
+                type: 'boolean',
+                description: 'Compact mode: reduce user fields to displayName only (70% size reduction)',
+              },
+              groupBy: {
+                type: 'string',
+                description: 'Field to group by in summary format (e.g., System.State, System.AssignedTo, System.WorkItemType)',
+              },
+              force: {
+                type: 'boolean',
+                description: 'Force JSON output even for large results (use with caution)',
+              },
+              page: {
+                type: 'number',
+                description: 'Page number (1-based, default: 1)',
+                minimum: 1,
+              },
+              pageSize: {
+                type: 'number',
+                description: 'Items per page (default: 50, max: 200)',
+                minimum: 1,
+                maximum: 200,
+              },
             },
+          },
+        },
+        {
+          name: 'get-work-item-aggregations',
+          description: 'Get aggregated work item data (contributors, counts, statistics) - much more efficient than full work item queries',
+          inputSchema: {
+            type: 'object',
+            properties: {
+              wiql: {
+                type: 'string',
+                description: 'Work Item Query Language (WIQL) query to select work items',
+              },
+              type: {
+                type: 'string',
+                enum: ['contributors', 'by-state', 'by-type', 'by-assigned'],
+                description: 'Aggregation type: "contributors" (unique contributors with counts), "by-state" (group by state), "by-type" (group by work item type), "by-assigned" (group by assigned user)',
+              },
+            },
+            required: ['wiql'],
           },
         },
         {

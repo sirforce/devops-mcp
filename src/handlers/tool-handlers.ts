@@ -90,6 +90,9 @@ export class ToolHandlers {
         case 'get-work-items':
           result = await this.getWorkItems(args || {});
           break;
+        case 'get-work-item-aggregations':
+          result = await this.getWorkItemAggregations(args || {});
+          break;
         case 'create-work-item':
           result = await this.createWorkItem(args || {});
           break;
@@ -260,17 +263,74 @@ export class ToolHandlers {
   }
 
   /**
+   * Compact user object to just essential fields
+   * Reduces user object from 7+ properties to just displayName string
+   */
+  private compactUserField(userObject: any, compactMode: boolean): any {
+    if (!compactMode || !userObject) {
+      return userObject;
+    }
+
+    // Return only displayName for compact mode
+    if (typeof userObject === 'object' && userObject.displayName) {
+      return userObject.displayName;
+    }
+
+    return userObject;
+  }
+
+  /**
+   * Apply compact mode to work item results
+   * Significantly reduces response size for large result sets
+   */
+  private compactWorkItems(workItems: any[], compactFields: boolean): any[] {
+    if (!compactFields) {
+      return workItems;
+    }
+
+    return workItems.map(item => {
+      const compacted = { ...item };
+
+      // Compact user fields to just displayName strings
+      const userFields = ['System.AssignedTo', 'System.CreatedBy', 'System.ChangedBy'];
+      userFields.forEach(field => {
+        if (compacted.fields[field]) {
+          compacted.fields[field] = this.compactUserField(compacted.fields[field], true);
+        }
+      });
+
+      // Remove unnecessary metadata that inflates response size
+      delete compacted._links;
+      delete compacted.commentVersionRef;
+      // Keep url as it's useful for direct access
+
+      return compacted;
+    });
+  }
+
+  /**
    * Format work items as a summary for large result sets
    */
-  private formatWorkItemsSummary(workItems: any[]): string {
-    const byState: { [key: string]: any[] } = {};
+  private formatWorkItemsSummary(workItems: any[], groupBy?: string): string {
+    groupBy = groupBy || 'System.State';
+
+    const groups: { [key: string]: any[] } = {};
     let totalPoints = 0;
 
-    // Group by state
+    // Group by specified field
     for (const item of workItems) {
-      const state = item.fields['System.State'];
-      if (!byState[state]) {
-        byState[state] = [];
+      let groupKey: string;
+
+      if (groupBy === 'System.AssignedTo') {
+        groupKey = item.fields['System.AssignedTo']?.displayName || 'Unassigned';
+      } else if (groupBy === 'System.WorkItemType') {
+        groupKey = item.fields['System.WorkItemType'] || 'Unknown';
+      } else {
+        groupKey = item.fields[groupBy] || 'Unknown';
+      }
+
+      if (!groups[groupKey]) {
+        groups[groupKey] = [];
       }
 
       const assigned = item.fields['System.AssignedTo']?.displayName || 'Unassigned';
@@ -281,10 +341,11 @@ export class ToolHandlers {
         totalPoints += points;
       }
 
-      byState[state].push({
+      groups[groupKey].push({
         id: item.id,
         title: item.fields['System.Title'],
         type: workType,
+        state: item.fields['System.State'],
         assigned,
         points: points || 'N/A'
       });
@@ -292,31 +353,217 @@ export class ToolHandlers {
 
     // Build summary string
     let summary = '='.repeat(80) + '\n';
-    summary += `Work Items Summary (${workItems.length} items, ${totalPoints} story points)\n`;
+    summary += `Work Items Summary - Grouped by ${groupBy}\n`;
+    summary += `(${workItems.length} items, ${totalPoints} story points)\n`;
     summary += '='.repeat(80) + '\n\n';
 
-    // Print by state
-    const stateOrder = ['New', 'Active', 'Resolved', 'Closed'];
-    for (const state of stateOrder) {
-      if (byState[state]) {
-        const items = byState[state];
-        const statePoints = items.reduce((sum, item) =>
-          sum + (typeof item.points === 'number' ? item.points : 0), 0
-        );
+    // Sort groups by item count (descending)
+    const sortedGroups = Object.entries(groups).sort((a, b) => b[1].length - a[1].length);
 
-        summary += `\n${state.toUpperCase()} (${items.length} items, ${statePoints} story points)\n`;
-        summary += '-'.repeat(80) + '\n';
+    for (const [groupName, items] of sortedGroups) {
+      const groupPoints = items.reduce((sum, item) =>
+        sum + (typeof item.points === 'number' ? item.points : 0), 0
+      );
 
-        for (const item of items) {
-          const pointsStr = typeof item.points === 'number' ? `${item.points} pts` : 'N/A';
-          const titleTrunc = item.title.length > 50 ? item.title.substring(0, 47) + '...' : item.title;
-          summary += `  #${item.id.toString().padStart(5)} - ${item.type.padEnd(20)} - ${pointsStr.padEnd(8)} - ${titleTrunc}\n`;
-          summary += `          Assigned: ${item.assigned}\n`;
+      summary += `\n${groupName.toUpperCase()} (${items.length} items, ${groupPoints} pts)\n`;
+      summary += '-'.repeat(80) + '\n';
+
+      // Limit to 10 items per group to keep summary manageable
+      for (const item of items.slice(0, 10)) {
+        const pointsStr = typeof item.points === 'number' ? `${item.points} pts` : 'N/A';
+        const titleTrunc = item.title.length > 50 ? item.title.substring(0, 47) + '...' : item.title;
+        summary += `  #${item.id.toString().padStart(5)} - ${item.type.padEnd(20)} - ${pointsStr.padEnd(8)} - ${titleTrunc}\n`;
+        if (groupBy !== 'System.State') {
+          summary += `          State: ${item.state}`;
         }
+        if (groupBy !== 'System.AssignedTo') {
+          summary += `  Assigned: ${item.assigned}\n`;
+        } else {
+          summary += '\n';
+        }
+      }
+
+      if (items.length > 10) {
+        summary += `  ... and ${items.length - 10} more\n`;
       }
     }
 
     return summary;
+  }
+
+  /**
+   * Get aggregation fields based on aggregation type
+   */
+  private getAggregationFields(aggregationType: string): string[] {
+    switch (aggregationType) {
+      case 'contributors':
+        return ['System.AssignedTo', 'System.CreatedBy', 'System.ChangedBy'];
+      case 'by-state':
+      case 'by-type':
+      case 'by-assigned':
+        return ['System.State', 'System.WorkItemType', 'System.AssignedTo', 'System.Title', 'Microsoft.VSTS.Scheduling.StoryPoints'];
+      default:
+        return ['System.Id', 'System.Title', 'System.State', 'System.AssignedTo'];
+    }
+  }
+
+  /**
+   * Aggregate contributors (AssignedTo, CreatedBy, ChangedBy)
+   */
+  private aggregateContributors(workItems: any[]): any {
+    const contributors = new Set<string>();
+    const byRole: { [role: string]: { [name: string]: number } } = {
+      assignedTo: {},
+      createdBy: {},
+      changedBy: {}
+    };
+
+    for (const item of workItems) {
+      // Assigned To
+      const assigned = item.fields['System.AssignedTo']?.displayName || 'Unassigned';
+      contributors.add(assigned);
+      byRole.assignedTo[assigned] = (byRole.assignedTo[assigned] || 0) + 1;
+
+      // Created By
+      const created = item.fields['System.CreatedBy']?.displayName || 'Unknown';
+      contributors.add(created);
+      byRole.createdBy[created] = (byRole.createdBy[created] || 0) + 1;
+
+      // Changed By
+      const changed = item.fields['System.ChangedBy']?.displayName || 'Unknown';
+      contributors.add(changed);
+      byRole.changedBy[changed] = (byRole.changedBy[changed] || 0) + 1;
+    }
+
+    return {
+      totalWorkItems: workItems.length,
+      uniqueContributors: Array.from(contributors).sort(),
+      contributorCount: contributors.size,
+      byRole: {
+        assignedTo: Object.entries(byRole.assignedTo)
+          .map(([name, count]) => ({ name, count }))
+          .sort((a, b) => b.count - a.count),
+        createdBy: Object.entries(byRole.createdBy)
+          .map(([name, count]) => ({ name, count }))
+          .sort((a, b) => b.count - a.count),
+        changedBy: Object.entries(byRole.changedBy)
+          .map(([name, count]) => ({ name, count }))
+          .sort((a, b) => b.count - a.count)
+      }
+    };
+  }
+
+  /**
+   * Aggregate by a specific field
+   */
+  private aggregateByField(workItems: any[], fieldName: string): any {
+    const groups: { [key: string]: any[] } = {};
+    let totalPoints = 0;
+
+    for (const item of workItems) {
+      let groupKey: string;
+
+      if (fieldName === 'System.AssignedTo') {
+        groupKey = item.fields['System.AssignedTo']?.displayName || 'Unassigned';
+      } else {
+        groupKey = item.fields[fieldName] || 'Unknown';
+      }
+
+      if (!groups[groupKey]) {
+        groups[groupKey] = [];
+      }
+
+      const points = item.fields['Microsoft.VSTS.Scheduling.StoryPoints'];
+      if (typeof points === 'number') {
+        totalPoints += points;
+      }
+
+      groups[groupKey].push({
+        id: item.id,
+        title: item.fields['System.Title'],
+        points: points || 0
+      });
+    }
+
+    return {
+      totalWorkItems: workItems.length,
+      totalStoryPoints: totalPoints,
+      groupedBy: fieldName,
+      groups: Object.entries(groups)
+        .map(([name, items]) => ({
+          name,
+          count: items.length,
+          storyPoints: items.reduce((sum, item) => sum + (typeof item.points === 'number' ? item.points : 0), 0),
+          items: items.slice(0, 5) // Include first 5 items as examples
+        }))
+        .sort((a, b) => b.count - a.count)
+    };
+  }
+
+  /**
+   * Get aggregated work item data (contributors, counts, statistics)
+   */
+  private async getWorkItemAggregations(args: any): Promise<any> {
+    try {
+      const aggregationType = args.type || 'contributors';
+
+      if (!args.wiql) {
+        throw new Error('WIQL query is required for aggregations');
+      }
+
+      // Execute WIQL query to get work items
+      const { query: cleanWiql, top } = this.extractWiqlTop(args.wiql);
+
+      const wiqlResult = await this.makeApiRequest(`/wit/wiql?api-version=7.1&$top=${top}`, 'POST', {
+        query: cleanWiql
+      });
+
+      if (!wiqlResult.workItems || wiqlResult.workItems.length === 0) {
+        return {
+          content: [{
+            type: 'text',
+            text: JSON.stringify({
+              message: 'No work items found',
+              totalWorkItems: 0
+            }, null, 2)
+          }]
+        };
+      }
+
+      const ids = wiqlResult.workItems.map((wi: any) => wi.id);
+      const fields = this.getAggregationFields(aggregationType);
+      const fieldsParam = `&fields=${encodeURIComponent(fields.join(','))}`;
+
+      const result = await this.fetchWorkItemsByIds(ids, fieldsParam);
+
+      // Perform server-side aggregation
+      let aggregatedData;
+      switch (aggregationType) {
+        case 'contributors':
+          aggregatedData = this.aggregateContributors(result.value);
+          break;
+        case 'by-state':
+          aggregatedData = this.aggregateByField(result.value, 'System.State');
+          break;
+        case 'by-type':
+          aggregatedData = this.aggregateByField(result.value, 'System.WorkItemType');
+          break;
+        case 'by-assigned':
+          aggregatedData = this.aggregateByField(result.value, 'System.AssignedTo');
+          break;
+        default:
+          throw new Error(`Unknown aggregation type: ${aggregationType}`);
+      }
+
+      return {
+        content: [{
+          type: 'text',
+          text: JSON.stringify(aggregatedData, null, 2),
+        }],
+      };
+    } catch (error) {
+      throw new Error(`Failed to get work item aggregations: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
   }
 
   /**
@@ -349,12 +596,41 @@ export class ToolHandlers {
         });
         
         if (wiqlResult.workItems && wiqlResult.workItems.length > 0) {
-          const ids = wiqlResult.workItems.map((wi: any) => wi.id);
+          let ids = wiqlResult.workItems.map((wi: any) => wi.id);
+
+          // Apply pagination if requested
+          const page = args.page || 1;
+          const pageSize = args.pageSize || (args.page ? 50 : undefined); // Only apply default pageSize if page is specified
+
+          let paginationMetadata = null;
+          if (page > 1 || pageSize) {
+            const actualPageSize = pageSize || 50;
+            const start = (page - 1) * actualPageSize;
+            const end = start + actualPageSize;
+            const paginatedIds = ids.slice(start, end);
+
+            paginationMetadata = {
+              page,
+              pageSize: actualPageSize,
+              totalItems: ids.length,
+              totalPages: Math.ceil(ids.length / actualPageSize),
+              hasNextPage: end < ids.length,
+              hasPreviousPage: page > 1
+            };
+
+            ids = paginatedIds;
+          }
+
           const fields = args.fields ? args.fields.join(',') : undefined;
           const fieldsParam = fields ? `&fields=${encodeURIComponent(fields)}` : '';
-          
+
           // Fetch in batches of 200 to prevent VS403474 (page size exceeded)
           result = await this.fetchWorkItemsByIds(ids, fieldsParam);
+
+          // Add pagination metadata if applicable
+          if (paginationMetadata) {
+            result._pagination = paginationMetadata;
+          }
         } else {
           result = { value: [] };
         }
@@ -383,25 +659,101 @@ export class ToolHandlers {
         }
       }
 
-      // Check if we should use summary format
-      // Use summary if: explicitly requested OR result is large (>10 items with full details)
-      const useSummary = args.format === 'summary' ||
-                        (result.value && result.value.length > 10 && !args.fields);
+      // Apply compact mode if requested (reduces user fields to displayName only)
+      if (args.compact && result.value && result.value.length > 0) {
+        result.value = this.compactWorkItems(result.value, true);
+      }
 
-      if (useSummary && result.value && result.value.length > 0) {
-        // Return formatted summary for readability
+      // Intelligent size-based result handling
+      const resultString = JSON.stringify(result, null, 2);
+      const sizeBytes = Buffer.byteLength(resultString, 'utf8');
+      const TOKEN_LIMIT = 200000; // ~50KB of JSON in tokens
+      const SIZE_WARNING_THRESHOLD = 150000; // 37.5KB
+      const SUMMARY_THRESHOLD_ITEMS = 20;
+
+      console.error(`[DEBUG] Result size: ${sizeBytes} bytes (${result.value?.length || 0} items)`);
+
+      // Improved summary trigger logic - based on size AND item count
+      const useSummary = args.format === 'summary' ||
+                        (result.value && result.value.length > SUMMARY_THRESHOLD_ITEMS) ||
+                        (sizeBytes > SIZE_WARNING_THRESHOLD);
+
+      // Force summary if definitely over token limit (unless explicitly forced to JSON)
+      if (sizeBytes > TOKEN_LIMIT && args.format !== 'json' && args.force !== true) {
+        console.error(`[WARNING] Result exceeds token limit (${sizeBytes} bytes). Applying automatic summary format.`);
+
         return {
           content: [{
             type: 'text',
-            text: this.formatWorkItemsSummary(result.value),
+            text: this.formatWorkItemsSummary(result.value, args.groupBy),
           }],
+          _metadata: {
+            originalSize: sizeBytes,
+            truncated: true,
+            reason: 'exceeded-token-limit',
+            itemCount: result.value?.length || 0,
+            suggestions: [
+              'Use compact: true to reduce user field sizes (70% reduction)',
+              'Add format: "summary" for readable overview',
+              'Specify only needed fields to reduce response size',
+              'Use pagination (coming in Phase 2)'
+            ]
+          }
         };
       }
 
+      // Use summary format if triggered
+      if (useSummary && result.value && result.value.length > 0 && args.format !== 'json') {
+        console.error(`[INFO] Using summary format for ${result.value.length} items (${sizeBytes} bytes)`);
+
+        return {
+          content: [{
+            type: 'text',
+            text: this.formatWorkItemsSummary(result.value, args.groupBy),
+          }],
+          _metadata: {
+            format: 'summary',
+            totalItems: result.value.length,
+            estimatedFullSize: sizeBytes,
+            hint: 'Use format: "json" with force: true for full JSON output'
+          }
+        };
+      }
+
+      // If approaching limit, add warning metadata
+      if (sizeBytes > SIZE_WARNING_THRESHOLD) {
+        console.error(`[WARNING] Large result detected (${sizeBytes} bytes)`);
+
+        const suggestions = [];
+        if (!args.compact) {
+          suggestions.push('Add compact: true to reduce user field sizes (70% reduction)');
+        }
+        if (!args.format) {
+          suggestions.push('Add format: "summary" for readable summary');
+        }
+        if (!args.fields && result.value?.[0]?.fields) {
+          const availableFields = Object.keys(result.value[0].fields);
+          suggestions.push(`Specify only needed fields (${availableFields.length} fields returned)`);
+        }
+
+        return {
+          content: [{
+            type: 'text',
+            text: resultString,
+          }],
+          _metadata: {
+            size: sizeBytes,
+            warning: 'large-result',
+            suggestions
+          }
+        };
+      }
+
+      // Normal size, return as-is
       return {
         content: [{
           type: 'text',
-          text: JSON.stringify(result, null, 2),
+          text: resultString,
         }],
       };
     } catch (error) {

@@ -22,11 +22,11 @@ Comprehensive context for Claude Code to work effectively with the Azure DevOps 
 **Technology**: Node.js, TypeScript, MCP Protocol
 **Purpose**: Dynamic Azure DevOps integration with intelligent directory-based authentication switching
 **Status**: ✅ **PRODUCTION READY** - Active deployment with >95% test coverage
-**Version**: 1.7.0
+**Version**: 1.7.1
 
 **GitHub**: <https://github.com/sirforce/devops-mcp>
 **Distribution**: **LOCAL INSTALLATION ONLY** (not on NPM registry)
-**Features**: Local `.azure-devops.json` configuration, secure PAT tokens, comprehensive testing, full Azure DevOps API integration
+**Features**: Local `.azure-devops.json` configuration, secure PAT tokens, comprehensive testing, full Azure DevOps API integration, **compact mode (84.7% size reduction)**, server-side aggregation, pagination support
 
 ---
 
@@ -162,6 +162,8 @@ Claude automatically detects project context based on your current directory:
 
 ### **Complete Azure DevOps Integration**
 - ✅ **Work Item Management**: Create, update, query work items with full hierarchy support
+- ✅ **Performance Optimizations**: Compact mode (84.7% size reduction), pagination, server-side aggregation
+- ✅ **Intelligent Response Handling**: Auto-triggering summary format, flexible groupBy, context-aware optimization
 - ✅ **Repository Operations**: Access repositories, pull requests, branch information
 - ✅ **Build & Pipeline**: Trigger pipelines, monitor builds, check deployment status
 - ✅ **Project Context**: Get current configuration, validate authentication
@@ -173,7 +175,8 @@ Claude automatically detects project context based on your current directory:
 ### **Work Item Commands**
 | Command | Purpose | Key Parameters |
 |---------|---------|----------------|
-| `mcp__devops-mcp__get-work-items` | Query work items | `--wiql`, `--ids`, `--fields` |
+| `mcp__devops-mcp__get-work-items` | Query work items | `--wiql`, `--ids`, `--fields`, `--compact`, `--page`, `--pageSize`, `--groupBy`, `--format`, `--force` |
+| `mcp__devops-mcp__get-work-item-aggregations` | Get aggregated analytics | `--wiql`, `--type` (contributors, by-state, by-type, by-assigned) |
 | `mcp__devops-mcp__create-work-item` | Create new work items | `--type`, `--title`, `--parent`, `--assignedTo` |
 | `mcp__devops-mcp__update-work-item` | Update existing items | `--id`, `--state`, `--assignedTo`, `--parent` |
 | `mcp__devops-mcp__add-work-item-comment` | Add comments | `--id`, `--comment` |
@@ -265,9 +268,23 @@ mcp__devops-mcp__update-work-item \
 ### **📈 Sprint Management**
 
 ```bash
-# Get all work items in current sprint
+# Get all work items in current sprint (with compact mode for efficiency)
 mcp__devops-mcp__get-work-items \
-  --wiql "SELECT [System.Id], [System.Title], [System.State], [System.AssignedTo] FROM WorkItems WHERE [System.IterationPath] UNDER 'MyProject\\Current Sprint'"
+  --wiql "SELECT [System.Id], [System.Title], [System.State], [System.AssignedTo] FROM WorkItems WHERE [System.IterationPath] UNDER 'MyProject\\Current Sprint'" \
+  --compact true \
+  --groupBy "System.State"
+
+# Get contributor statistics for current sprint (95% size reduction)
+mcp__devops-mcp__get-work-item-aggregations \
+  --wiql "SELECT [System.Id] FROM WorkItems WHERE [System.IterationPath] = @CurrentIteration" \
+  --type contributors
+
+# Paginate through large result sets
+mcp__devops-mcp__get-work-items \
+  --wiql "SELECT [System.Id] FROM WorkItems WHERE [System.State] = 'Active'" \
+  --page 1 \
+  --pageSize 20 \
+  --compact true
 
 # Move incomplete items to next sprint
 mcp__devops-mcp__update-work-item \
@@ -308,9 +325,10 @@ mcp__devops-mcp__add-work-item-comment \
 ### **WIQL Query Examples for Claude**
 
 ```bash
-# Get my assigned active work items
+# Get my assigned active work items (with compact mode)
 mcp__devops-mcp__get-work-items \
-  --wiql "SELECT [System.Id], [System.Title], [System.State] FROM WorkItems WHERE [System.AssignedTo] = @me AND [System.State] = 'Active'"
+  --wiql "SELECT [System.Id], [System.Title], [System.State] FROM WorkItems WHERE [System.AssignedTo] = @me AND [System.State] = 'Active'" \
+  --compact true
 
 # Find high-priority bugs
 mcp__devops-mcp__get-work-items \
@@ -563,13 +581,14 @@ mcp__devops-mcp__get-current-context
 
 ---
 
-**Documentation Version**: 3.0
-**Package Version**: 1.7.0
+**Documentation Version**: 3.1
+**Package Version**: 1.7.1
 **Created**: 2025-07-27
 **Last Updated**: 2026-02-11
 **Project Status**: Production Ready (Active Deployment)
 **Primary Technologies**: Node.js, TypeScript, MCP Protocol, Azure DevOps REST API v7.1+
 **Test Coverage**: >95%
+**Performance**: 84.7% size reduction with compact mode, 95% reduction with aggregation
 **Distribution**: **LOCALHOST ONLY** (127.0.0.1) - NOT on NPM
 **GitHub**: <https://github.com/sirforce/devops-mcp>
 
